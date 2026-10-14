@@ -62,36 +62,81 @@ def detect_serial_port() -> str | None:
 
 
 async def get_current_media_track() -> dict:
-    """Queries Windows Media Session Manager for currently playing track."""
-    if not HAS_WINSDK or MediaManager is None or PlaybackStatus is None:
-        return {"title": "", "artist": "", "playing": False}
+    """Queries Windows Media Session Manager or Spotify window title for currently playing track."""
+    if HAS_WINSDK and MediaManager is not None and PlaybackStatus is not None:
+        try:
+            manager = await MediaManager.request_async()
+            if manager:
+                session = manager.get_current_session()
 
+                # If no current session or current session is not playing, scan all available sessions
+                sessions = manager.get_sessions()
+                if sessions is not None:
+                    # Priority 1: Find any session actively PLAYING
+                    if not session or (session.get_playback_info() and session.get_playback_info().playback_status != PlaybackStatus.PLAYING):
+                        for s in sessions:
+                            pb = s.get_playback_info()
+                            if pb and pb.playback_status == PlaybackStatus.PLAYING:
+                                session = s
+                                break
+
+                    # Priority 2: If none is playing, find any session that has metadata (e.g. paused)
+                    if not session:
+                        for s in sessions:
+                            props = await s.try_get_media_properties_async()
+                            if props and (props.title or props.artist):
+                                session = s
+                                break
+
+                if session:
+                    pb = session.get_playback_info()
+                    is_playing = (pb.playback_status == PlaybackStatus.PLAYING) if pb else False
+                    props = await session.try_get_media_properties_async()
+                    if props and (props.title or props.artist):
+                        return {
+                            "title": props.title or "",
+                            "artist": props.artist or "",
+                            "playing": is_playing
+                        }
+        except Exception:
+            pass
+
+    # Windows fallback: Spotify desktop window title
     try:
-        manager = await MediaManager.request_async()
-        if not manager:
-            return {"title": "", "artist": "", "playing": False}
+        import ctypes
+        user32 = ctypes.windll.user32
+        spotify_info = None
 
-        session = manager.get_current_session()
+        def enum_win(hwnd: int, _: int) -> bool:
+            nonlocal spotify_info
+            if not user32.IsWindowVisible(hwnd):
+                return True
+            length = user32.GetWindowTextLengthW(hwnd)
+            if length > 0:
+                buff = ctypes.create_unicode_buffer(length + 1)
+                user32.GetWindowTextW(hwnd, buff, length + 1)
+                title = buff.value
+                if " - " in title:
+                    pid = ctypes.c_ulong()
+                    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                    try:
+                        p = psutil.Process(pid.value)
+                        if "spotify" in p.name().lower():
+                            parts = title.split(" - ", 1)
+                            spotify_info = {
+                                "artist": parts[0].strip(),
+                                "title": parts[1].strip(),
+                                "playing": True
+                            }
+                            return False
+                    except Exception:
+                        pass
+            return True
 
-        if not session:
-            sessions = manager.get_sessions()
-            if sessions:
-                for s in sessions:
-                    pb = s.get_playback_info()
-                    if pb and pb.playback_status == PlaybackStatus.PLAYING:
-                        session = s
-                        break
-
-        if session:
-            pb = session.get_playback_info()
-            is_playing = (pb.playback_status == PlaybackStatus.PLAYING) if pb else False
-            props = await session.try_get_media_properties_async()
-            if props:
-                return {
-                    "title": props.title or "",
-                    "artist": props.artist or "",
-                    "playing": is_playing
-                }
+        cb_proto = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+        user32.EnumWindows(cb_proto(enum_win), 0)
+        if spotify_info:
+            return spotify_info
     except Exception:
         pass
 
@@ -203,7 +248,7 @@ def collect_snapshot() -> dict:
     }
 
 
-def run_serial_stream(port: str, interval: float = 1.0):
+def run_serial_stream(port: str, interval: float = 1.0, mock_media: dict | None = None):
     """Streams live telemetry and media packets to the DeskOS OLED."""
     if not HAS_SERIAL or serial is None:
         print("[ERROR] pyserial is not installed in the environment.")
@@ -219,28 +264,40 @@ def run_serial_stream(port: str, interval: float = 1.0):
         # Prime counters
         collect_snapshot()
         last_media_sig = None
+        last_media_sent_time = 0.0
 
         while True:
             t_start = time.time()
 
             snap = collect_snapshot()
-            media = asyncio.run(get_current_media_track())
+            if mock_media:
+                media = mock_media
+            else:
+                media = asyncio.run(get_current_media_track())
 
             media_sig = (media["title"], media["artist"], media["playing"])
             media_changed = (media_sig != last_media_sig)
-            last_media_sig = media_sig
+            time_since_last_media = t_start - last_media_sent_time
 
-            if media_changed or media["playing"]:
+            # Send media update if changed, or periodically every 4 seconds if we have a track
+            if media_changed or (media["title"] and time_since_last_media > 4.0):
+                was_playing = last_media_sig[2] if last_media_sig else False
+                just_started_playing = media["playing"] and not was_playing
+
                 media_payload = {
                     "cmd": "media",
                     "title": media["title"],
                     "artist": media["artist"],
                     "playing": media["playing"],
-                    "auto_show": media["playing"]
+                    "auto_show": just_started_playing
                 }
                 ser.write((json.dumps(media_payload) + "\n").encode("utf-8"))
                 ser.flush()
+                last_media_sent_time = t_start
 
+            last_media_sig = media_sig
+
+            now_dt = datetime.now()
             stats_payload = {
                 "cmd": "stats",
                 "cpu": round(snap["cpu"]["overall_percent"], 1),
@@ -248,14 +305,18 @@ def run_serial_stream(port: str, interval: float = 1.0):
                 "uptime": snap["uptime"]["formatted"],
                 "net_in": snap["network"]["kb_recv_per_sec"],
                 "net_out": snap["network"]["kb_sent_per_sec"],
-                "auto_show": not media["playing"]
+                "time": now_dt.strftime("%H:%M:%S"),
+                "date": now_dt.strftime("%a, %b %d %Y"),
+                "auto_show": False
             }
             ser.write((json.dumps(stats_payload) + "\n").encode("utf-8"))
             ser.flush()
 
-            music_status = f"Now Playing: \"{media['title']}\" - {media['artist']}" if media["playing"] else "Music: None"
+            music_status = f"Now Playing: \"{media['title']}\" - {media['artist']}" if media["playing"] else (
+                f"Music Paused: \"{media['title']}\"" if media["title"] else "Music: None"
+            )
             print(
-                f"[STREAM] CPU: {stats_payload['cpu']:>4.1f}% | RAM: {stats_payload['ram']:>4.1f}% | Net: {stats_payload['net_in']:>5.1f} KB/s | {music_status}",
+                f"[STREAM] {stats_payload['time']} | CPU: {stats_payload['cpu']:>4.1f}% | RAM: {stats_payload['ram']:>4.1f}% | Net: {stats_payload['net_in']:>5.1f} KB/s | {music_status}",
                 flush=True
             )
 
@@ -275,6 +336,9 @@ def main():
     parser.add_argument("--serial", type=str, default="auto", help="COM port to stream to (default: auto-detect)")
     parser.add_argument("--interval", type=float, default=1.0, help="Update interval in seconds (default: 1.0)")
     parser.add_argument("--qr", type=str, default=None, help="Send a QR code URL or text directly to display")
+    parser.add_argument("--test-media", action="store_true", help="Stream mock playing music track for visual testing")
+    parser.add_argument("--track", type=str, default=None, help="Custom track title for testing")
+    parser.add_argument("--artist", type=str, default="Rick Astley", help="Custom artist for testing")
     parser.add_argument("--snapshot", action="store_true", help="Output a single JSON snapshot to stdout and exit")
     parser.add_argument("--pretty", action="store_true", help="Pretty print JSON snapshot")
     args = parser.parse_args()
@@ -312,8 +376,17 @@ def main():
         print("[BRIDGE] QR Code rendered successfully!")
         return
 
+    # Mock media handling
+    mock_media = None
+    if args.test_media or args.track:
+        mock_media = {
+            "title": args.track or "Never Gonna Give You Up",
+            "artist": args.artist or "Rick Astley",
+            "playing": True
+        }
+
     # Default Mode: Stream live PC Stats and Media to OLED
-    run_serial_stream(port=port, interval=args.interval)
+    run_serial_stream(port=port, interval=args.interval, mock_media=mock_media)
 
 
 if __name__ == "__main__":

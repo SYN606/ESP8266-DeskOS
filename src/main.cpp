@@ -34,13 +34,17 @@ void processSerialLine(const char* line) {
             globalTelemetry.ramPercent = doc["ram"] | 0.0f;
             const char* up = doc["uptime"];
             if (up) strncpy(globalTelemetry.uptimeStr, up, sizeof(globalTelemetry.uptimeStr) - 1);
+            const char* tStr = doc["time"];
+            if (tStr) strncpy(globalTelemetry.timeStr, tStr, sizeof(globalTelemetry.timeStr) - 1);
+            const char* dStr = doc["date"];
+            if (dStr) strncpy(globalTelemetry.dateStr, dStr, sizeof(globalTelemetry.dateStr) - 1);
             globalTelemetry.netKbIn = doc["net_in"] | 0.0f;
             globalTelemetry.netKbOut = doc["net_out"] | 0.0f;
             globalTelemetry.hasData = true;
             globalTelemetry.lastReceivedMs = millis();
-            // Switch display to PC stats screen only if auto_show is requested and not currently playing music
+            // Switch display to PC stats screen only if explicitly requested during startup
             if (doc["auto_show"] | false) {
-                if (deskDisplay.getMode() != DisplayMode::MUSIC_PLAYER || !globalMedia.isPlaying) {
+                if (deskDisplay.getMode() == DisplayMode::STARTUP) {
                     deskDisplay.setMode(DisplayMode::PC_STATS);
                 }
             }

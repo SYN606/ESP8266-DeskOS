@@ -16,6 +16,8 @@ struct TelemetryData {
     float netKbIn = 0.0f;
     float netKbOut = 0.0f;
     char uptimeStr[32] = "00h 00m";
+    char timeStr[16] = "";
+    char dateStr[32] = "";
     unsigned long lastReceivedMs = 0;
     bool hasData = false;
 };

@@ -338,6 +338,9 @@ void DeskDisplay::drawClock(const char* timeStr, const char* dateStr, bool wifiO
     if (wifiOk) {
         m_u8g2.drawStr(2, 8, "WIFI: CONNECTED");
         if (ipStr) m_u8g2.drawStr(82, 8, ipStr);
+    } else if (globalTelemetry.hasData && globalTelemetry.timeStr[0] != '\0') {
+        m_u8g2.drawStr(2, 8, "SYNC: PC AGENT");
+        m_u8g2.drawStr(78, 8, "USB LIVE");
     } else {
         m_u8g2.drawStr(2, 8, "AP: DeskOS-Setup");
         m_u8g2.drawStr(80, 8, "192.168.4.1");
@@ -393,8 +396,15 @@ void DeskDisplay::update() {
         case DisplayMode::CLOCK: {
             char timeBuf[16];
             char dateBuf[32];
-            deskNetwork.getTimeString(timeBuf, sizeof(timeBuf));
-            deskNetwork.getDateString(dateBuf, sizeof(dateBuf));
+            if (globalTelemetry.hasData && globalTelemetry.timeStr[0] != '\0') {
+                strncpy(timeBuf, globalTelemetry.timeStr, sizeof(timeBuf) - 1);
+                timeBuf[sizeof(timeBuf) - 1] = '\0';
+                strncpy(dateBuf, globalTelemetry.dateStr, sizeof(dateBuf) - 1);
+                dateBuf[sizeof(dateBuf) - 1] = '\0';
+            } else {
+                deskNetwork.getTimeString(timeBuf, sizeof(timeBuf));
+                deskNetwork.getDateString(dateBuf, sizeof(dateBuf));
+            }
             drawClock(timeBuf, dateBuf, deskNetwork.isConnected(), deskNetwork.getIPString());
             break;
         }
