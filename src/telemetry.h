@@ -2,6 +2,13 @@
 
 #include <Arduino.h>
 
+struct MediaData {
+    char title[48] = "";
+    char artist[32] = "";
+    bool isPlaying = false;
+    unsigned long lastUpdateMs = 0;
+};
+
 struct TelemetryData {
     float cpuPercent = 0.0f;
     float ramPercent = 0.0f;
@@ -14,3 +21,5 @@ struct TelemetryData {
 };
 
 extern TelemetryData globalTelemetry;
+extern MediaData globalMedia;
+extern char globalQRCodeText[96];

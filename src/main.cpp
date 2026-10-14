@@ -38,11 +38,27 @@ void processSerialLine(const char* line) {
             globalTelemetry.netKbOut = doc["net_out"] | 0.0f;
             globalTelemetry.hasData = true;
             globalTelemetry.lastReceivedMs = millis();
-            // Automatically switch to PC stats if user hasn't explicitly locked another mode
+            // Switch display to PC stats screen only if auto_show is requested and not currently playing music
             if (doc["auto_show"] | false) {
-                deskDisplay.setMode(DisplayMode::PC_STATS);
+                if (deskDisplay.getMode() != DisplayMode::MUSIC_PLAYER || !globalMedia.isPlaying) {
+                    deskDisplay.setMode(DisplayMode::PC_STATS);
+                }
             }
             Serial.println(F("{\"ack\":\"stats_updated\"}"));
+        } else if (strcmp(cmd, "media") == 0) {
+            const char* title = doc["title"];
+            const char* artist = doc["artist"];
+            bool isPlaying = doc["playing"] | false;
+            deskDisplay.setMedia(title, artist, isPlaying);
+            if (doc["auto_show"] | false) {
+                deskDisplay.setMode(DisplayMode::MUSIC_PLAYER);
+            }
+            Serial.println(F("{\"ack\":\"media_updated\"}"));
+        } else if (strcmp(cmd, "qr") == 0) {
+            const char* text = doc["text"];
+            if (text) deskDisplay.setQRCode(text);
+            deskDisplay.setMode(DisplayMode::QR_CODE);
+            Serial.println(F("{\"ack\":\"qr_set\"}"));
         } else if (strcmp(cmd, "mode") == 0) {
             const char* m = doc["val"];
             if (m) deskDisplay.setMode(m);
@@ -80,6 +96,16 @@ void processSerialLine(const char* line) {
         case 'S':
             deskDisplay.setMode(DisplayMode::PC_STATS);
             Serial.println(F("[COMMAND] Switched to PC STATS"));
+            break;
+        case 'p':
+        case 'P':
+            deskDisplay.setMode(DisplayMode::MUSIC_PLAYER);
+            Serial.println(F("[COMMAND] Switched to MUSIC PLAYER"));
+            break;
+        case 'q':
+        case 'Q':
+            deskDisplay.setMode(DisplayMode::QR_CODE);
+            Serial.println(F("[COMMAND] Switched to QR CODE"));
             break;
         case 'c':
         case 'C':

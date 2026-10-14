@@ -12,6 +12,8 @@ enum class DisplayMode {
     STARTUP,
     ROBOT_EYES,
     PC_STATS,
+    MUSIC_PLAYER,
+    QR_CODE,
     CLOCK,
     CUSTOM_MESSAGE
 };
@@ -34,11 +36,15 @@ public:
     void drawStartupScreen();
     void drawRobotEyes();
     void drawPCStats(const TelemetryData& stats);
+    void drawMusicPlayer(const MediaData& media);
+    void drawQRCode(const char* text);
     void drawClock(const char* timeStr, const char* dateStr, bool wifiOk, const char* ipStr);
     void drawCustomMessage(const char* line1, const char* line2);
 
-    // Set custom message text
+    // Dynamic payloads
     void setMessage(const char* l1, const char* l2);
+    void setQRCode(const char* text);
+    void setMedia(const char* title, const char* artist, bool isPlaying);
 
     // Display contrast / brightness (0 - 255)
     void setBrightness(uint8_t level);
@@ -65,6 +71,8 @@ private:
     unsigned long m_startupUntilMs;
     float m_smoothCpu;
     float m_smoothRam;
+    int16_t m_musicScrollX;
+    uint8_t m_eqPhase;
 };
 
 extern DeskDisplay deskDisplay;

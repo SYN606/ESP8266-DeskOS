@@ -46,6 +46,8 @@ select:focus,input:focus{border-color:var(--accent);}
     <select id="mode-select" onchange="setMode(this.value)">
       <option value="eyes">Animated Robot Eyes</option>
       <option value="stats">PC System Monitor</option>
+      <option value="music">Music Player (Now Playing)</option>
+      <option value="qr">QR Code</option>
       <option value="clock">Digital Clock & Date</option>
       <option value="msg">Custom Message</option>
     </select>
@@ -89,6 +91,12 @@ select:focus,input:focus{border-color:var(--accent);}
 </div>
 
 <div class="card">
+  <h2>Generate QR Code</h2>
+  <div class="row"><label>URL or Text to encode</label><input type="text" id="qr-input" placeholder="https://github.com/SYN606/ESP8266-DeskOS"></div>
+  <button class="btn" onclick="sendQR()">Display QR on OLED</button>
+</div>
+
+<div class="card">
   <h2>Wi-Fi Settings</h2>
   <div class="row"><label>Wi-Fi SSID</label><input type="text" id="wifi-ssid"></div>
   <div class="row"><label>Password</label><input type="password" id="wifi-pass"></div>
@@ -103,6 +111,11 @@ function sendMsg(){
   fetch('/api/msg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
     line1:document.getElementById('msg1').value,
     line2:document.getElementById('msg2').value
+  })});
+}
+function sendQR(){
+  fetch('/api/qr',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    text:document.getElementById('qr-input').value
   })});
 }
 function saveWiFi(){
@@ -331,6 +344,32 @@ void DeskNetwork::setupServerRoutes() {
         globalTelemetry.netKbOut = doc["net_out"] | 0.0f;
         globalTelemetry.hasData = true;
         globalTelemetry.lastReceivedMs = millis();
+        m_server.send(200, "application/json", "{\"status\":\"ok\"}");
+    });
+
+    // API: Push QR Code
+    m_server.on("/api/qr", HTTP_POST, [this]() {
+        if (!m_server.hasArg("plain")) { m_server.send(400, "text/plain", "Missing body"); return; }
+        JsonDocument doc;
+        deserializeJson(doc, m_server.arg("plain"));
+        const char* text = doc["text"];
+        if (text) deskDisplay.setQRCode(text);
+        deskDisplay.setMode(DisplayMode::QR_CODE);
+        m_server.send(200, "application/json", "{\"status\":\"ok\"}");
+    });
+
+    // API: Push Music / Now Playing info
+    m_server.on("/api/media", HTTP_POST, [this]() {
+        if (!m_server.hasArg("plain")) { m_server.send(400, "text/plain", "Missing body"); return; }
+        JsonDocument doc;
+        deserializeJson(doc, m_server.arg("plain"));
+        const char* title = doc["title"];
+        const char* artist = doc["artist"];
+        bool isPlaying = doc["playing"] | false;
+        deskDisplay.setMedia(title, artist, isPlaying);
+        if (doc["auto_show"] | false) {
+            deskDisplay.setMode(DisplayMode::MUSIC_PLAYER);
+        }
         m_server.send(200, "application/json", "{\"status\":\"ok\"}");
     });
 }
