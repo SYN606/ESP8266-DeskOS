@@ -18,8 +18,6 @@ DeskDisplay::DeskDisplay()
       m_smoothRam(0.0f),
       m_musicScrollX(0),
       m_eqPhase(0) {
-    strncpy(m_msgLine1, "Hello from", sizeof(m_msgLine1));
-    strncpy(m_msgLine2, "ESP32 DeskOS!", sizeof(m_msgLine2));
 }
 
 bool DeskDisplay::begin() {
@@ -76,7 +74,6 @@ void DeskDisplay::setMode(const char* modeStr) {
     else if (strcasecmp(modeStr, "music") == 0 || strcasecmp(modeStr, "player") == 0) m_mode = DisplayMode::MUSIC_PLAYER;
     else if (strcasecmp(modeStr, "qr") == 0 || strcasecmp(modeStr, "qrcode") == 0) m_mode = DisplayMode::QR_CODE;
     else if (strcasecmp(modeStr, "clock") == 0) m_mode = DisplayMode::CLOCK;
-    else if (strcasecmp(modeStr, "msg") == 0 || strcasecmp(modeStr, "message") == 0) m_mode = DisplayMode::CUSTOM_MESSAGE;
     else if (strcasecmp(modeStr, "startup") == 0) m_mode = DisplayMode::STARTUP;
 }
 
@@ -87,7 +84,6 @@ const char* DeskDisplay::getModeString() const {
         case DisplayMode::MUSIC_PLAYER: return "MUSIC_PLAYER";
         case DisplayMode::QR_CODE: return "QR_CODE";
         case DisplayMode::CLOCK: return "CLOCK";
-        case DisplayMode::CUSTOM_MESSAGE: return "CUSTOM_MESSAGE";
         default: return "STARTUP";
     }
 }
@@ -98,17 +94,9 @@ void DeskDisplay::nextMode() {
         case DisplayMode::PC_STATS: m_mode = DisplayMode::MUSIC_PLAYER; break;
         case DisplayMode::MUSIC_PLAYER: m_mode = DisplayMode::QR_CODE; break;
         case DisplayMode::QR_CODE: m_mode = DisplayMode::CLOCK; break;
-        case DisplayMode::CLOCK: m_mode = DisplayMode::CUSTOM_MESSAGE; break;
-        case DisplayMode::CUSTOM_MESSAGE: m_mode = DisplayMode::ROBOT_EYES; break;
+        case DisplayMode::CLOCK: m_mode = DisplayMode::ROBOT_EYES; break;
         default: m_mode = DisplayMode::ROBOT_EYES; break;
     }
-}
-
-void DeskDisplay::setMessage(const char* l1, const char* l2) {
-    if (l1) strncpy(m_msgLine1, l1, sizeof(m_msgLine1) - 1);
-    if (l2) strncpy(m_msgLine2, l2, sizeof(m_msgLine2) - 1);
-    m_msgLine1[sizeof(m_msgLine1) - 1] = '\0';
-    m_msgLine2[sizeof(m_msgLine2) - 1] = '\0';
 }
 
 void DeskDisplay::setQRCode(const char* text) {
@@ -367,27 +355,6 @@ void DeskDisplay::drawClock(const char* timeStr, const char* dateStr, bool wifiO
     m_u8g2.sendBuffer();
 }
 
-void DeskDisplay::drawCustomMessage(const char* line1, const char* line2) {
-    m_u8g2.clearBuffer();
-    m_u8g2.drawRFrame(0, 0, 128, 64, 3);
-    m_u8g2.drawHLine(0, 16, 128);
-
-    m_u8g2.setFont(u8g2_font_6x10_tr);
-    const char* header = "MESSAGE";
-    m_u8g2.drawStr((128 - m_u8g2.getStrWidth(header)) / 2, 12, header);
-
-    m_u8g2.setFont(u8g2_font_7x14B_tr);
-    if (line1 && strlen(line1) > 0) {
-        m_u8g2.drawStr((128 - m_u8g2.getStrWidth(line1)) / 2, 35, line1);
-    }
-    m_u8g2.setFont(u8g2_font_6x10_tr);
-    if (line2 && strlen(line2) > 0) {
-        m_u8g2.drawStr((128 - m_u8g2.getStrWidth(line2)) / 2, 52, line2);
-    }
-
-    m_u8g2.sendBuffer();
-}
-
 void DeskDisplay::update() {
     if (!m_initialized) return;
 
@@ -431,9 +398,6 @@ void DeskDisplay::update() {
             drawClock(timeBuf, dateBuf, deskNetwork.isConnected(), deskNetwork.getIPString());
             break;
         }
-        case DisplayMode::CUSTOM_MESSAGE:
-            drawCustomMessage(m_msgLine1, m_msgLine2);
-            break;
         default:
             break;
     }

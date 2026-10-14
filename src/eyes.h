@@ -19,7 +19,7 @@ public:
     // Call regularly inside loop() to advance animations
     void update();
 
-    // Render the eyes and articulated eyebrows onto the U8g2 framebuffer
+    // Render the eyes and articulated curved eyebrows onto the U8g2 framebuffer
     void draw(U8G2& u8g2);
 
     // Set mood
@@ -53,15 +53,23 @@ private:
     float m_targetLeftWidth;
     float m_targetRightWidth;
 
-    // Articulated animated eyebrows (inner & outer Y endpoints)
+    // 3-Point Articulated Curved Eyebrows (Inner, Arch Peak, Outer Tail)
     float m_leftBrowInnerY;
+    float m_leftBrowMidY;
     float m_leftBrowOuterY;
     float m_rightBrowInnerY;
+    float m_rightBrowMidY;
     float m_rightBrowOuterY;
+
     float m_targetLeftBrowInnerY;
+    float m_targetLeftBrowMidY;
     float m_targetLeftBrowOuterY;
     float m_targetRightBrowInnerY;
+    float m_targetRightBrowMidY;
     float m_targetRightBrowOuterY;
+
+    // Secondary animation physics: eyebrow inertial lag & elastic bounce
+    float m_browInertiaY;
     float m_browBounce;
 
     // Saccadic gaze spring physics & positions
@@ -97,7 +105,7 @@ private:
     void updateGaze(unsigned long now);
     void updateMoodDynamics(unsigned long now);
     void drawCorneaGlint(U8G2& u8g2, int16_t xCenter, int16_t yCenter, float curW, float curH, bool isLeft);
-    void drawEyebrow(U8G2& u8g2, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t thickness);
+    void drawCurvedEyebrow(U8G2& u8g2, int16_t xIn, int16_t yIn, int16_t xMid, int16_t yMid, int16_t xOut, int16_t yOut, bool isLeft);
 };
 
 extern RobotEyes robotEyes;

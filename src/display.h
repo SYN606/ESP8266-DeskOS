@@ -14,8 +14,7 @@ enum class DisplayMode {
     PC_STATS,
     MUSIC_PLAYER,
     QR_CODE,
-    CLOCK,
-    CUSTOM_MESSAGE
+    CLOCK
 };
 
 class DeskDisplay {
@@ -39,10 +38,8 @@ public:
     void drawMusicPlayer(const MediaData& media);
     void drawQRCode(const char* text);
     void drawClock(const char* timeStr, const char* dateStr, bool wifiOk, const char* ipStr);
-    void drawCustomMessage(const char* line1, const char* line2);
 
     // Dynamic payloads
-    void setMessage(const char* l1, const char* l2);
     void setQRCode(const char* text);
     void setMedia(const char* title, const char* artist, bool isPlaying);
 
@@ -63,9 +60,6 @@ private:
     bool m_initialized;
     DisplayMode m_mode;
     uint8_t m_brightness;
-
-    char m_msgLine1[32];
-    char m_msgLine2[32];
 
     unsigned long m_lastDrawMs;
     unsigned long m_startupUntilMs;

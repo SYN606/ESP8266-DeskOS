@@ -56,13 +56,7 @@ To instantly generate and display a QR code on your desk screen:
 uv run python pc-agent/agent.py --qr "https://github.com/SYN606/ESP8266-DeskOS"
 ```
 
-### 3. Display a Custom Message Banner
-
-```powershell
-uv run python pc-agent/agent.py --msg "Meeting in 5 mins!"
-```
-
-### 4. Console Snapshot (No Hardware Required)
+### 3. Console Snapshot (No Hardware Required)
 
 To print a single formatted JSON telemetry snapshot without connecting to a board:
 
@@ -77,9 +71,8 @@ uv run python pc-agent/agent.py --snapshot --pretty
 | Flag | Default | Description |
 |---|---|---|
 | `--serial <PORT>` | `auto` | Serial COM port (e.g. `COM3`). Auto-detects if omitted. |
-| `--interval <SEC>` | `1.5` | Update interval in seconds. |
+| `--interval <SEC>` | `1.0` | Update interval in seconds. |
 | `--qr <TEXT>` | `None` | Render a QR code on the display and exit. |
-| `--msg <TEXT>` | `None` | Display a custom message banner on OLED and exit. |
 | `--snapshot` | `False` | Output a single JSON metrics snapshot to stdout. |
 | `--pretty` | `False` | Pretty-print JSON snapshot with indentation. |
 

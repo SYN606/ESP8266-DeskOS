@@ -49,7 +49,6 @@ select:focus,input:focus{border-color:var(--accent);}
       <option value="music">Music Player (Now Playing)</option>
       <option value="qr">QR Code</option>
       <option value="clock">Digital Clock & Date</option>
-      <option value="msg">Custom Message</option>
     </select>
   </div>
   <div class="row">
@@ -85,13 +84,6 @@ select:focus,input:focus{border-color:var(--accent);}
 </div>
 
 <div class="card">
-  <h2>Send OLED Message</h2>
-  <div class="row"><label>Line 1</label><input type="text" id="msg1" maxlength="20" placeholder="Hello"></div>
-  <div class="row"><label>Line 2</label><input type="text" id="msg2" maxlength="20" placeholder="From DeskOS"></div>
-  <button class="btn" onclick="sendMsg()">Push to OLED</button>
-</div>
-
-<div class="card">
   <h2>Generate QR Code</h2>
   <div class="row"><label>URL or Text to encode</label><input type="text" id="qr-input" placeholder="https://github.com/SYN606/ESP8266-DeskOS"></div>
   <button class="btn" onclick="sendQR()">Display QR on OLED</button>
@@ -108,12 +100,6 @@ select:focus,input:focus{border-color:var(--accent);}
 function setMode(m){fetch('/api/mode',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:m})});}
 function setMood(m){fetch('/api/mood',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mood:m})});}
 function setBrightness(b){fetch('/api/brightness',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({val:parseInt(b)})});}
-function sendMsg(){
-  fetch('/api/msg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-    line1:document.getElementById('msg1').value,
-    line2:document.getElementById('msg2').value
-  })});
-}
 function sendQR(){
   fetch('/api/qr',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
     text:document.getElementById('qr-input').value
@@ -309,17 +295,7 @@ void DeskNetwork::setupServerRoutes() {
         m_server.send(200, "application/json", "{\"status\":\"ok\"}");
     });
 
-    // API: Push custom message
-    m_server.on("/api/msg", HTTP_POST, [this]() {
-        if (!m_server.hasArg("plain")) { m_server.send(400, "text/plain", "Missing body"); return; }
-        JsonDocument doc;
-        deserializeJson(doc, m_server.arg("plain"));
-        const char* l1 = doc["line1"];
-        const char* l2 = doc["line2"];
-        deskDisplay.setMessage(l1, l2);
-        deskDisplay.setMode(DisplayMode::CUSTOM_MESSAGE);
-        m_server.send(200, "application/json", "{\"status\":\"ok\"}");
-    });
+
 
     // API: Connect to Wi-Fi
     m_server.on("/api/wifi", HTTP_POST, [this]() {

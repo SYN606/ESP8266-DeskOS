@@ -175,7 +175,6 @@ When connected to `.\scripts\monitor.ps1`, press:
 - `p` — Switch to **Music Player**
 - `q` — Switch to **QR Code**
 - `c` — Switch to **Digital Clock & Date**
-- `m` — Switch to **Custom Message**
 - `b` — Trigger instant **Blink**
 - `h` — Set mood to **Happy**
 - `n` — Set mood to **Neutral**
@@ -189,9 +188,6 @@ When connected to `.\scripts\monitor.ps1`, press:
 ```powershell
 # Display a custom QR Code on the OLED:
 uv run python pc-agent/agent.py --qr "https://github.com/SYN606/ESP8266-DeskOS"
-
-# Display a custom message on the OLED:
-uv run python pc-agent/agent.py --msg "Hello World!"
 
 # Print a single JSON telemetry snapshot to console:
 uv run python pc-agent/agent.py --snapshot --pretty

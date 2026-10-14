@@ -14,13 +14,18 @@ RobotEyes::RobotEyes()
       m_targetLeftWidth(DEFAULT_WIDTH),
       m_targetRightWidth(DEFAULT_WIDTH),
       m_leftBrowInnerY(8.0f),
-      m_leftBrowOuterY(8.0f),
+      m_leftBrowMidY(6.8f),
+      m_leftBrowOuterY(8.5f),
       m_rightBrowInnerY(8.0f),
-      m_rightBrowOuterY(8.0f),
+      m_rightBrowMidY(6.8f),
+      m_rightBrowOuterY(8.5f),
       m_targetLeftBrowInnerY(8.0f),
-      m_targetLeftBrowOuterY(8.0f),
+      m_targetLeftBrowMidY(6.8f),
+      m_targetLeftBrowOuterY(8.5f),
       m_targetRightBrowInnerY(8.0f),
-      m_targetRightBrowOuterY(8.0f),
+      m_targetRightBrowMidY(6.8f),
+      m_targetRightBrowOuterY(8.5f),
+      m_browInertiaY(0.0f),
       m_browBounce(0.0f),
       m_offsetX(0.0f),
       m_offsetY(0.0f),
@@ -74,7 +79,7 @@ void RobotEyes::triggerBlink() {
     m_isBlinking = true;
     m_blinkStage = 1;
     m_blinkStartMs = millis();
-    m_browBounce = 2.0f; // Brows react with a quick dip
+    m_browBounce = 2.4f;
 }
 
 void RobotEyes::look(int8_t dirX, int8_t dirY) {
@@ -83,7 +88,7 @@ void RobotEyes::look(int8_t dirX, int8_t dirY) {
 }
 
 void RobotEyes::updateBlink(unsigned long now) {
-    // 1. Spontaneous Blink Trigger
+    // 1. Spontaneous natural blink trigger
     if (!m_isBlinking) {
         bool shouldBlink = false;
 
@@ -110,16 +115,16 @@ void RobotEyes::updateBlink(unsigned long now) {
             m_isBlinking = true;
             m_blinkStage = 1;
             m_blinkStartMs = now;
-            m_browBounce = 1.8f;
+            m_browBounce = 2.0f; // Brows react with a quick sympathetic dip
         }
         return;
     }
 
     // 2. High-performance non-linear asymmetric blink curve
     unsigned long elapsed = now - m_blinkStartMs;
-    constexpr unsigned long CLOSE_DURATION_MS = 65;
-    constexpr unsigned long CLOSED_PAUSE_MS   = 20;
-    constexpr unsigned long OPEN_DURATION_MS  = 140;
+    constexpr unsigned long CLOSE_DURATION_MS = 60;
+    constexpr unsigned long CLOSED_PAUSE_MS   = 22;
+    constexpr unsigned long OPEN_DURATION_MS  = 135;
 
     if (m_blinkStage == 1) { // Closing
         if (elapsed < CLOSE_DURATION_MS) {
@@ -134,8 +139,9 @@ void RobotEyes::updateBlink(unsigned long now) {
         if (elapsed >= CLOSED_PAUSE_MS) {
             m_blinkStage = 3;
             m_blinkStartMs = now;
+            m_browBounce = -1.2f; // Slight spring rebound lift on open
         }
-    } else if (m_blinkStage == 3) { // Opening
+    } else if (m_blinkStage == 3) { // Opening with elastic ease-out
         if (elapsed < OPEN_DURATION_MS) {
             float t = (float)elapsed / OPEN_DURATION_MS;
             float easeOut = 1.0f - powf(1.0f - t, 3.0f);
@@ -185,45 +191,52 @@ void RobotEyes::updateGaze(unsigned long now) {
     m_velY = (m_velY + forceY) * DAMPING;
     m_offsetY += m_velY;
 
-    // 3. Physiological Ocular Micro-Tremor
-    m_tremorX = (sinf(now * 0.006f) * 0.45f) + (sinf(now * 0.016f) * 0.25f);
-    m_tremorY = (cosf(now * 0.005f) * 0.35f);
+    // 3. Physiological Ocular Micro-Tremor (Sub-pixel biological life)
+    m_tremorX = (sinf(now * 0.007f) * 0.45f) + (sinf(now * 0.017f) * 0.25f);
+    m_tremorY = (cosf(now * 0.006f) * 0.35f);
 
     // 4. Organic Respiration Rhythm
     float breathPhase = now * 0.0022f;
     m_breathOffset = sinf(breathPhase) * 1.4f;
     m_breathScale  = 1.0f + (sinf(breathPhase) * 0.025f);
 
-    // 5. Eyebrow bounce settling (elastic return to 0)
-    m_browBounce *= 0.85f;
+    // 5. Eyebrow Inertial Secondary Motion (Lag + Bounce Settle)
+    float targetBrowGaze = (m_offsetY * 0.70f);
+    m_browInertiaY += (targetBrowGaze - m_browInertiaY) * 0.20f;
+    m_browBounce *= 0.82f;
 }
 
 void RobotEyes::updateMoodDynamics(unsigned long now) {
-    // Eyebrow and eye dimension targets for each mood
+    // 3-Point Eyebrow and Eye Targets for each mood
     switch (m_mood) {
         case EyeMood::HAPPY:
             m_targetLeftWidth   = 36.0f;
             m_targetRightWidth  = 36.0f;
             m_targetLeftHeight  = 36.0f;
             m_targetRightHeight = 36.0f;
-            // Cheerful raised arched eyebrows
-            m_targetLeftBrowOuterY  = 8.0f;
-            m_targetLeftBrowInnerY  = 5.5f;
-            m_targetRightBrowInnerY = 5.5f;
-            m_targetRightBrowOuterY = 8.0f;
+            // Joyous upward curved arcs
+            m_targetLeftBrowInnerY  = 6.8f;
+            m_targetLeftBrowMidY    = 3.8f;
+            m_targetLeftBrowOuterY  = 7.2f;
+            m_targetRightBrowInnerY = 6.8f;
+            m_targetRightBrowMidY   = 3.8f;
+            m_targetRightBrowOuterY = 7.2f;
             break;
 
         case EyeMood::SKEPTICAL:
-            // Left eye arches quizzically high; right eye squints
+            // Left eye arches inquisitively high; right eye squints
             m_targetLeftWidth   = 35.0f;
             m_targetRightWidth  = 33.0f;
             m_targetLeftHeight  = 42.0f;
             m_targetRightHeight = 22.0f;
-            // The Rock's iconic eyebrow lift: Left brow high up, right brow lowered down
+            // High questioning arch on Left, lowered questioning furrow on Right
+            m_targetLeftBrowInnerY  = 4.0f;
+            m_targetLeftBrowMidY    = 1.5f;
             m_targetLeftBrowOuterY  = 4.5f;
-            m_targetLeftBrowInnerY  = 2.5f;
-            m_targetRightBrowInnerY = 13.0f;
-            m_targetRightBrowOuterY = 11.5f;
+
+            m_targetRightBrowInnerY = 14.0f;
+            m_targetRightBrowMidY   = 11.8f;
+            m_targetRightBrowOuterY = 9.5f;
             break;
 
         case EyeMood::ANGRY:
@@ -231,10 +244,12 @@ void RobotEyes::updateMoodDynamics(unsigned long now) {
             m_targetRightWidth  = 34.0f;
             m_targetLeftHeight  = 34.0f;
             m_targetRightHeight = 34.0f;
-            // Fierce V-shape brow furrow angled down to center
+            // Fierce downward chevron furrow slanting into nose bridge
+            m_targetLeftBrowInnerY  = 15.0f;
+            m_targetLeftBrowMidY    = 9.5f;
             m_targetLeftBrowOuterY  = 4.0f;
-            m_targetLeftBrowInnerY  = 14.0f;
-            m_targetRightBrowInnerY = 14.0f;
+            m_targetRightBrowInnerY = 15.0f;
+            m_targetRightBrowMidY   = 9.5f;
             m_targetRightBrowOuterY = 4.0f;
             break;
 
@@ -243,11 +258,13 @@ void RobotEyes::updateMoodDynamics(unsigned long now) {
             m_targetRightWidth  = 34.0f;
             m_targetLeftHeight  = 20.0f;
             m_targetRightHeight = 20.0f;
-            // Heavy, drooping, relaxed brows
-            m_targetLeftBrowOuterY  = 13.0f;
-            m_targetLeftBrowInnerY  = 9.5f;
-            m_targetRightBrowInnerY = 9.5f;
-            m_targetRightBrowOuterY = 13.0f;
+            // Heavy, relaxed, drooping brows
+            m_targetLeftBrowInnerY  = 8.5f;
+            m_targetLeftBrowMidY    = 11.2f;
+            m_targetLeftBrowOuterY  = 14.5f;
+            m_targetRightBrowInnerY = 8.5f;
+            m_targetRightBrowMidY   = 11.2f;
+            m_targetRightBrowOuterY = 14.5f;
             break;
 
         case EyeMood::SURPRISED:
@@ -255,11 +272,13 @@ void RobotEyes::updateMoodDynamics(unsigned long now) {
             m_targetRightWidth  = 38.0f;
             m_targetLeftHeight  = 45.0f;
             m_targetRightHeight = 45.0f;
-            // Brows shot high up in shock!
-            m_targetLeftBrowOuterY  = 2.5f;
-            m_targetLeftBrowInnerY  = 1.5f;
-            m_targetRightBrowInnerY = 1.5f;
-            m_targetRightBrowOuterY = 2.5f;
+            // High rounded twin arches in astonishment!
+            m_targetLeftBrowInnerY  = 3.0f;
+            m_targetLeftBrowMidY    = 1.0f;
+            m_targetLeftBrowOuterY  = 3.2f;
+            m_targetRightBrowInnerY = 3.0f;
+            m_targetRightBrowMidY   = 1.0f;
+            m_targetRightBrowOuterY = 3.2f;
             break;
 
         default: // NEUTRAL
@@ -267,21 +286,23 @@ void RobotEyes::updateMoodDynamics(unsigned long now) {
             m_targetRightWidth  = (float)DEFAULT_WIDTH;
             m_targetLeftHeight  = (float)DEFAULT_HEIGHT;
             m_targetRightHeight = (float)DEFAULT_HEIGHT;
-            // Natural relaxed horizontal brows
-            m_targetLeftBrowOuterY  = 8.5f;
+            // Relaxed, balanced, natural subtle arch
             m_targetLeftBrowInnerY  = 8.0f;
+            m_targetLeftBrowMidY    = 6.8f;
+            m_targetLeftBrowOuterY  = 8.5f;
             m_targetRightBrowInnerY = 8.0f;
+            m_targetRightBrowMidY   = 6.8f;
             m_targetRightBrowOuterY = 8.5f;
             break;
     }
 
-    // Parallax width squish when glancing horizontally
+    // Dynamic squash & stretch when glancing horizontally
     if (m_offsetX < -4.0f) {
         m_targetLeftWidth  *= 0.92f;
-        m_targetRightWidth *= 1.05f;
+        m_targetRightWidth *= 1.06f;
     } else if (m_offsetX > 4.0f) {
         m_targetRightWidth *= 0.92f;
-        m_targetLeftWidth  *= 1.05f;
+        m_targetLeftWidth  *= 1.06f;
     }
 
     // Smooth organic interpolation (lerp)
@@ -292,8 +313,11 @@ void RobotEyes::updateMoodDynamics(unsigned long now) {
     m_rightWidth  += (m_targetRightWidth  - m_rightWidth)  * LERP_SPEED;
 
     m_leftBrowInnerY  += (m_targetLeftBrowInnerY  - m_leftBrowInnerY)  * LERP_SPEED;
+    m_leftBrowMidY    += (m_targetLeftBrowMidY    - m_leftBrowMidY)    * LERP_SPEED;
     m_leftBrowOuterY  += (m_targetLeftBrowOuterY  - m_leftBrowOuterY)  * LERP_SPEED;
+
     m_rightBrowInnerY += (m_targetRightBrowInnerY - m_rightBrowInnerY) * LERP_SPEED;
+    m_rightBrowMidY   += (m_targetRightBrowMidY   - m_rightBrowMidY)   * LERP_SPEED;
     m_rightBrowOuterY += (m_targetRightBrowOuterY - m_rightBrowOuterY) * LERP_SPEED;
 }
 
@@ -326,18 +350,26 @@ void RobotEyes::drawCorneaGlint(U8G2& u8g2, int16_t xCenter, int16_t yCenter, fl
     u8g2.setDrawColor(1);
 }
 
-void RobotEyes::drawEyebrow(U8G2& u8g2, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t thickness) {
-    // Render solid, clean angled brow with rounded end-caps
-    for (uint8_t t = 0; t < thickness; ++t) {
-        u8g2.drawLine(x1, y1 + t, x2, y2 + t);
-    }
-    u8g2.drawDisc(x1, y1 + (thickness / 2), 1);
-    u8g2.drawDisc(x2, y2 + (thickness / 2), 1);
+void RobotEyes::drawCurvedEyebrow(U8G2& u8g2, int16_t xIn, int16_t yIn, int16_t xMid, int16_t yMid, int16_t xOut, int16_t yOut, bool isLeft) {
+    // 1. Inner to Mid segment (Tapered from 4px down to 3px)
+    u8g2.drawLine(xIn, yIn,     xMid, yMid);
+    u8g2.drawLine(xIn, yIn + 1, xMid, yMid + 1);
+    u8g2.drawLine(xIn, yIn + 2, xMid, yMid + 2);
+    u8g2.drawLine(xIn, yIn + 3, xMid, yMid + 2); // Tapers into 3px at mid
+
+    // 2. Mid to Outer segment (Tapered from 3px down to 2px at temple)
+    u8g2.drawLine(xMid, yMid,     xOut, yOut);
+    u8g2.drawLine(xMid, yMid + 1, xOut, yOut + 1);
+    u8g2.drawLine(xMid, yMid + 2, xOut, yOut + 1); // Tapers into 2px at outer
+
+    // 3. Smooth rounded caps at endpoints
+    u8g2.drawDisc(xIn, yIn + 1, 1);
+    u8g2.drawDisc(xMid, yMid + 1, 1);
 }
 
 void RobotEyes::draw(U8G2& u8g2) {
     constexpr int16_t BASE_X = 21;
-    constexpr int16_t BASE_Y = 16; // Leaves top room for eyebrows
+    constexpr int16_t BASE_Y = 16; // Leaves ample vertical headroom for articulated eyebrows
 
     float totalOffsetX = m_offsetX + m_tremorX;
     float totalOffsetY = m_offsetY + m_tremorY + m_breathOffset;
@@ -370,23 +402,26 @@ void RobotEyes::draw(U8G2& u8g2) {
     u8g2.drawRBox(xL, yL, (int16_t)m_leftWidth, (int16_t)effectiveLH, radL);
     u8g2.drawRBox(xR, yR, (int16_t)m_rightWidth, (int16_t)effectiveRH, radR);
 
-    // 2. Render Articulated Eyebrows (Above each eye)
-    // Eyebrows follow gaze shift & breathe with dynamic reaction bounce
-    float browGazeY = (m_offsetY * 0.65f) + m_breathOffset + m_browBounce;
+    // 2. Render Articulated 3-Point Curved Eyebrows
+    float browMotionY = m_browInertiaY + m_breathOffset + m_browBounce;
 
-    // Left Eyebrow
-    int16_t leftOuterX = xL - 2;
-    int16_t leftInnerX = xL + (int16_t)m_leftWidth + 2;
-    int16_t leftOuterY = constrain((int16_t)(m_leftBrowOuterY + browGazeY), 0, 22);
-    int16_t leftInnerY = constrain((int16_t)(m_leftBrowInnerY + browGazeY), 0, 22);
-    drawEyebrow(u8g2, leftOuterX, leftOuterY, leftInnerX, leftInnerY, 3);
+    // Left Eyebrow (Inner near bridge, Mid peak, Outer temple)
+    int16_t lInX  = xL + (int16_t)m_leftWidth + 2;
+    int16_t lMidX = xL + (int16_t)(m_leftWidth * 0.45f);
+    int16_t lOutX = xL - 3;
+    int16_t lInY  = constrain((int16_t)(m_leftBrowInnerY + browMotionY), 0, 22);
+    int16_t lMidY = constrain((int16_t)(m_leftBrowMidY   + browMotionY), 0, 22);
+    int16_t lOutY = constrain((int16_t)(m_leftBrowOuterY + browMotionY), 0, 22);
+    drawCurvedEyebrow(u8g2, lInX, lInY, lMidX, lMidY, lOutX, lOutY, true);
 
-    // Right Eyebrow
-    int16_t rightInnerX = xR - 2;
-    int16_t rightOuterX = xR + (int16_t)m_rightWidth + 2;
-    int16_t rightInnerY = constrain((int16_t)(m_rightBrowInnerY + browGazeY), 0, 22);
-    int16_t rightOuterY = constrain((int16_t)(m_rightBrowOuterY + browGazeY), 0, 22);
-    drawEyebrow(u8g2, rightInnerX, rightInnerY, rightOuterX, rightOuterY, 3);
+    // Right Eyebrow (Inner near bridge, Mid peak, Outer temple)
+    int16_t rInX  = xR - 2;
+    int16_t rMidX = xR + (int16_t)(m_rightWidth * 0.55f);
+    int16_t rOutX = xR + (int16_t)m_rightWidth + 3;
+    int16_t rInY  = constrain((int16_t)(m_rightBrowInnerY + browMotionY), 0, 22);
+    int16_t rMidY = constrain((int16_t)(m_rightBrowMidY   + browMotionY), 0, 22);
+    int16_t rOutY = constrain((int16_t)(m_rightBrowOuterY + browMotionY), 0, 22);
+    drawCurvedEyebrow(u8g2, rInX, rInY, rMidX, rMidY, rOutX, rOutY, false);
 
     // 3. Render Mood Features & Cornea Highlights
     if (m_blinkProgress > 0.4f) {

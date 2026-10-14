@@ -70,12 +70,6 @@ void processSerialLine(const char* line) {
         } else if (strcmp(cmd, "blink") == 0) {
             robotEyes.triggerBlink();
             Serial.println(F("{\"ack\":\"blink\"}"));
-        } else if (strcmp(cmd, "msg") == 0) {
-            const char* l1 = doc["line1"];
-            const char* l2 = doc["line2"];
-            deskDisplay.setMessage(l1, l2);
-            deskDisplay.setMode(DisplayMode::CUSTOM_MESSAGE);
-            Serial.println(F("{\"ack\":\"message_shown\"}"));
         } else if (strcmp(cmd, "brightness") == 0) {
             uint8_t b = doc["val"] | 255;
             deskDisplay.setBrightness(b);
@@ -112,11 +106,6 @@ void processSerialLine(const char* line) {
             deskDisplay.setMode(DisplayMode::CLOCK);
             Serial.println(F("[COMMAND] Switched to CLOCK"));
             break;
-        case 'm':
-        case 'M':
-            deskDisplay.setMode(DisplayMode::CUSTOM_MESSAGE);
-            Serial.println(F("[COMMAND] Switched to MESSAGE"));
-            break;
         case 'b':
         case 'B':
             robotEyes.triggerBlink();
@@ -152,7 +141,7 @@ void processSerialLine(const char* line) {
             Serial.printf("[COMMAND] Next Mode: %s\n", deskDisplay.getModeString());
             break;
         default:
-            Serial.printf("[COMMAND] Unknown key: '%c'. Keys: e=eyes, s=stats, c=clock, m=msg, b=blink, h=happy, a=angry, space=next\n", c);
+            Serial.printf("[COMMAND] Unknown key: '%c'. Keys: e=eyes, s=stats, p=music, q=qr, c=clock, b=blink, h=happy, a=angry, u=surprised, space=next\n", c);
             break;
     }
 }
@@ -206,7 +195,7 @@ void setup() {
 
     Serial.println(F("========================================"));
     Serial.println(F("[SYSTEM] DeskOS Ready!"));
-    Serial.println(F("[SYSTEM] Press: 'e'=eyes, 's'=stats, 'c'=clock, 'm'=msg, 'b'=blink, space=next mode"));
+    Serial.println(F("[SYSTEM] Press: 'e'=eyes, 's'=stats, 'p'=music, 'q'=qr, 'c'=clock, 'b'=blink, space=next"));
     Serial.println(F("========================================"));
 }
 
@@ -231,5 +220,5 @@ void loop() {
                       deskNetwork.isConnected() ? deskNetwork.getSSID() : "AP-Mode");
     }
 
-    delay(2);
+    yield();
 }
