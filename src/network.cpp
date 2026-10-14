@@ -68,6 +68,7 @@ select:focus,input:focus{border-color:var(--accent);}
       <option value="skeptical">Skeptical</option>
       <option value="angry">Warning / Angry</option>
       <option value="sleepy">Sleepy / Idle</option>
+      <option value="surprised">Surprised / Curious</option>
     </select>
   </div>
 </div>

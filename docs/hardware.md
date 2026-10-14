@@ -17,14 +17,28 @@ This document details the hardware configuration, pin mapping, display controlle
 
 ## 2. Wiring & Pinout
 
-The OLED communicates with the ESP32 over the default hardware I²C bus (`Wire`).
+### ESP8266 NodeMCU (nodemcuv2)
+The OLED communicates over hardware I²C via pins D2 and D1:
 
-| OLED Pin | ESP32 Pin | Function | Notes |
-|---|---|---|---|
-| **VCC** | **3V3** | Power (+3.3V) | Do not connect to 5V unless module has 5V regulator |
-| **GND** | **GND** | Ground | Common system ground |
-| **SDA** | **GPIO21** | I²C Serial Data | Defined in `include/pins.h` |
-| **SCL** | **GPIO22** | I²C Serial Clock | Defined in `include/pins.h` |
+| OLED Pin | ESP8266 Pin | GPIO | Function | Notes |
+|---|---|---|---|---|
+| **VCC** | **3V3** | — | Power (+3.3V) | Do not connect to 5V |
+| **GND** | **GND** | — | Ground | Common system ground |
+| **SDA** | **D2** | **GPIO4** | Hardware I²C Data | Centralized in `include/pins.h` |
+| **SCL** | **D1** | **GPIO5** | Hardware I²C Clock | Centralized in `include/pins.h` |
+
+> [!CAUTION]
+> Do **not** connect SDA to pin `D0` (GPIO16). On ESP8266, GPIO16 is a special RTC wake pin without open-drain support. Use `D2` (GPIO4) and `D1` (GPIO5).
+
+### ESP32 NodeMCU (esp32dev)
+The OLED communicates over hardware I²C on default GPIO21 and GPIO22:
+
+| OLED Pin | ESP32 Pin | GPIO | Function | Notes |
+|---|---|---|---|---|
+| **VCC** | **3V3** | — | Power (+3.3V) | Do not connect to 5V |
+| **GND** | **GND** | — | Ground | Common system ground |
+| **SDA** | **D21** | **GPIO21** | Hardware I²C Data | Centralized in `include/pins.h` |
+| **SCL** | **D22** | **GPIO22** | Hardware I²C Clock | Centralized in `include/pins.h` |
 
 ### Pull-Up Resistors
 Most 1.3" OLED breakout boards include onboard 4.7kΩ or 10kΩ pull-up resistors on SDA and SCL. If using a bare panel without integrated pull-ups, install 4.7kΩ resistors between 3V3 and SDA/SCL.

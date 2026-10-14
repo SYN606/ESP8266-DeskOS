@@ -142,6 +142,11 @@ void processSerialLine(const char* line) {
             robotEyes.setMood(EyeMood::SKEPTICAL);
             Serial.println(F("[COMMAND] Mood: SKEPTICAL"));
             break;
+        case 'u':
+        case 'U':
+            robotEyes.setMood(EyeMood::SURPRISED);
+            Serial.println(F("[COMMAND] Mood: SURPRISED"));
+            break;
         case ' ':
             deskDisplay.nextMode();
             Serial.printf("[COMMAND] Next Mode: %s\n", deskDisplay.getModeString());
