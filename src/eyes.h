@@ -19,7 +19,7 @@ public:
     // Call regularly inside loop() to advance animations
     void update();
 
-    // Render the eyes onto the U8g2 framebuffer
+    // Render the eyes and articulated eyebrows onto the U8g2 framebuffer
     void draw(U8G2& u8g2);
 
     // Set mood
@@ -39,8 +39,8 @@ private:
 
     // Baseline dimensions
     static constexpr int8_t DEFAULT_WIDTH = 34;
-    static constexpr int8_t DEFAULT_HEIGHT = 44;
-    static constexpr int8_t CORNER_RADIUS = 11;
+    static constexpr int8_t DEFAULT_HEIGHT = 40;
+    static constexpr int8_t CORNER_RADIUS = 10;
     static constexpr int8_t EYE_SPACING = 18;
 
     // Dynamic interpolated dimensions & squish
@@ -52,6 +52,17 @@ private:
     float m_targetRightHeight;
     float m_targetLeftWidth;
     float m_targetRightWidth;
+
+    // Articulated animated eyebrows (inner & outer Y endpoints)
+    float m_leftBrowInnerY;
+    float m_leftBrowOuterY;
+    float m_rightBrowInnerY;
+    float m_rightBrowOuterY;
+    float m_targetLeftBrowInnerY;
+    float m_targetLeftBrowOuterY;
+    float m_targetRightBrowInnerY;
+    float m_targetRightBrowOuterY;
+    float m_browBounce;
 
     // Saccadic gaze spring physics & positions
     float m_offsetX;
@@ -86,6 +97,7 @@ private:
     void updateGaze(unsigned long now);
     void updateMoodDynamics(unsigned long now);
     void drawCorneaGlint(U8G2& u8g2, int16_t xCenter, int16_t yCenter, float curW, float curH, bool isLeft);
+    void drawEyebrow(U8G2& u8g2, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t thickness);
 };
 
 extern RobotEyes robotEyes;
