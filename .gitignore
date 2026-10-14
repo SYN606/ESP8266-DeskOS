@@ -1,0 +1,100 @@
+# ==============================================================================
+# ESP32 DeskOS — .gitignore
+# Professional git exclusion rules for embedded C++ and Python development
+# ==============================================================================
+
+# --- Virtual Environments & Package Managers ---
+.venv/
+venv/
+ENV/
+env/
+.uv/
+
+# --- PlatformIO & Embedded Build Artifacts ---
+.pio/
+.pioenvs/
+.piolibdeps/
+*.elf
+*.bin
+*.hex
+*.map
+*.o
+*.a
+*.d
+
+# --- Python Cache & Compilations ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Temporary Files, Scratchpads & Notes ---
+*.tmp
+*.temp
+*.bak
+*.backup
+*.log
+*.swp
+*~
+scratch/
+notes/
+tmp/
+temp/
+
+# Ignore scratch / draft markdown files (keeps core README.md, AGENTS.md, docs/)
+*draft*.md
+*notes*.md
+*scratch*.md
+*temp*.md
+TODO.md
+NOTES.md
+
+# --- Secrets, API Keys & Environment Variables ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# --- Operating System & File System Clutter ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --- IDE & Editor Specific Files ---
+.vscode/
+!.vscode/settings.json.example
+.idea/
+*.sublime-project
+*.sublime-workspace
+.project
+.cproject
+.settings/
+*.suo
+*.user

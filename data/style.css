@@ -1,0 +1,507 @@
+/* ==========================================================================
+   ESP32 DeskOS — Futuristic Dark Theme Dashboard Stylesheet
+   Subtle red accents, clean typography, responsive layout
+   ========================================================================== */
+
+:root {
+    --bg-primary: #0a0c10;
+    --bg-secondary: #12161f;
+    --bg-card: #181d28;
+    --bg-input: #0f1218;
+    --border-color: #232b3b;
+    --border-accent: rgba(255, 51, 68, 0.4);
+
+    --accent: #ff3344;
+    --accent-glow: rgba(255, 51, 68, 0.25);
+    --accent-hover: #ff4d5e;
+
+    --text-primary: #f0f4fc;
+    --text-secondary: #8c9ba5;
+    --text-muted: #576574;
+
+    --status-online: #00ff88;
+    --status-offline: #ff3344;
+
+    --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-stack);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.5;
+}
+
+/* Header */
+.app-header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.brand h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.brand .highlight {
+    color: var(--accent);
+    text-shadow: 0 0 12px var(--accent-glow);
+}
+
+.badge {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-accent);
+    color: var(--accent);
+    font-size: 0.7rem;
+    font-family: var(--font-mono);
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-dot.online {
+    background: var(--status-online);
+    box-shadow: 0 0 10px var(--status-online);
+}
+
+.header-meta {
+    display: flex;
+    gap: 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.text-accent {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+/* Main Dashboard Grid */
+.dashboard-grid {
+    flex: 1;
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Cards */
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.card:hover {
+    border-color: var(--border-accent);
+}
+
+.card-header {
+    background: var(--bg-secondary);
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-header h2 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+.card-tag {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    padding: 0.2rem 0.4rem;
+    border-radius: var(--radius-sm);
+}
+
+.card-tag.accent-tag {
+    background: rgba(255, 51, 68, 0.15);
+    color: var(--accent);
+    border: 1px solid var(--border-accent);
+}
+
+.card-body {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    flex: 1;
+}
+
+/* Form Controls */
+.control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.control-row label {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.label-with-value {
+    display: flex;
+    justify-content: space-between;
+}
+
+.field-val {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--accent);
+}
+
+.select-field,
+.input-field {
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0.6rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.88rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.select-field:focus,
+.input-field:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 6px var(--accent-glow);
+}
+
+.slider {
+    accent-color: var(--accent);
+    height: 6px;
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    outline: none;
+    cursor: pointer;
+}
+
+.toggle-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Switch */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider-toggle {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-color);
+    transition: .3s;
+    border-radius: 24px;
+}
+
+.slider-toggle:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: var(--text-secondary);
+    transition: .3s;
+    border-radius: 50%;
+}
+
+input:checked+.slider-toggle {
+    background-color: rgba(255, 51, 68, 0.2);
+    border-color: var(--accent);
+}
+
+input:checked+.slider-toggle:before {
+    transform: translateX(20px);
+    background-color: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+}
+
+/* Robot Eyes Graphic Preview */
+.eyes-preview-box {
+    background: #000;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    height: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+.eye-graphic {
+    width: 36px;
+    height: 48px;
+    background: var(--accent);
+    border-radius: 12px;
+    box-shadow: 0 0 16px var(--accent);
+    transition: all 0.3s ease;
+}
+
+.control-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.control-sub {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.control-sub label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* Telemetry Gauges */
+.stat-gauges {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.stat-card {
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    padding: 0.9rem;
+    border-radius: var(--radius-sm);
+    text-align: center;
+}
+
+.stat-title {
+    font-size: 0.7rem;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    letter-spacing: 0.05em;
+}
+
+.stat-big {
+    font-size: 2.2rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    margin: 0.2rem 0;
+}
+
+.stat-big small {
+    font-size: 1rem;
+    color: var(--accent);
+}
+
+.progress-bar-bg {
+    background: var(--border-color);
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    background: var(--accent);
+    height: 100%;
+    box-shadow: 0 0 8px var(--accent);
+    transition: width 0.4s ease;
+}
+
+.meta-stats-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    background: var(--bg-input);
+    padding: 0.75rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+.meta-row {
+    display: flex;
+    justify-content: space-between;
+}
+
+.meta-lbl {
+    color: var(--text-secondary);
+}
+
+.meta-val {
+    color: var(--text-primary);
+}
+
+/* Network Grid */
+.network-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+}
+
+.info-item {
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 0.6rem;
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+}
+
+.info-item .lbl {
+    color: var(--text-muted);
+    font-size: 0.68rem;
+}
+
+.info-item .val {
+    color: var(--text-primary);
+    margin-top: 0.1rem;
+    word-break: break-all;
+}
+
+/* Buttons */
+.action-buttons {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.btn {
+    flex: 1;
+    padding: 0.65rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+    box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.btn-secondary {
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+.btn-secondary:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+/* Notice */
+.placeholder-notice {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.02);
+    border-left: 2px solid var(--border-color);
+    padding: 0.4rem 0.6rem;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.placeholder-notice code {
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+}
+
+/* Footer */
+.app-footer {
+    text-align: center;
+    padding: 1rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 768px) {
+    .app-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .header-meta {
+        font-size: 0.75rem;
+    }
+
+    .dashboard-grid {
+        padding: 1rem;
+        grid-template-columns: 1fr;
+    }
+}

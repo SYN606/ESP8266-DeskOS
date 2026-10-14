@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 DeskOS — Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="app-header">
+        <div class="brand">
+            <span class="status-dot online"></span>
+            <h1>ESP32 <span class="highlight">DeskOS</span></h1>
+            <span class="badge">v0.1</span>
+        </div>
+        <div class="header-meta">
+            <span class="conn-status" id="conn-status">HARDWARE LINK: <strong
+                    class="text-accent">STANDBY</strong></span>
+            <span class="uptime" id="uptime">UPTIME: 00:00:00</span>
+        </div>
+    </header>
+
+    <main class="dashboard-grid">
+        <!-- Panel 1: Device Status & Quick Controls -->
+        <section class="card device-panel">
+            <div class="card-header">
+                <h2>Device & Display Control</h2>
+                <span class="card-tag">LOCAL</span>
+            </div>
+            <div class="card-body">
+                <div class="control-row">
+                    <label for="display-mode">Active Display Screen</label>
+                    <select id="display-mode" class="select-field">
+                        <option value="system_status">System Online (Default)</option>
+                        <option value="pc_stats">PC Monitor Stats</option>
+                        <option value="robot_eyes">Animated Robot Eyes</option>
+                        <option value="qr_code">QR Code Info</option>
+                        <option value="custom_message">Custom Message</option>
+                        <option value="clock_date">Clock & Calendar</option>
+                    </select>
+                </div>
+
+                <div class="control-row">
+                    <div class="label-with-value">
+                        <label for="brightness-slider">Display Brightness</label>
+                        <span id="brightness-val" class="field-val">100%</span>
+                    </div>
+                    <input type="range" id="brightness-slider" min="0" max="255" value="255" class="slider">
+                </div>
+
+                <div class="control-row toggle-row">
+                    <span>OLED Screen Invert</span>
+                    <label class="switch">
+                        <input type="checkbox" id="screen-invert">
+                        <span class="slider-toggle"></span>
+                    </label>
+                </div>
+
+                <div class="placeholder-notice">
+                    <span class="icon">ℹ</span> Note: Display controls are UI placeholders for DeskOS v0.1 hardware
+                    verification.
+                </div>
+            </div>
+        </section>
+
+        <!-- Panel 2: Robot Eyes & Expressions -->
+        <section class="card eyes-panel">
+            <div class="card-header">
+                <h2>Animated Eyes Configuration</h2>
+                <span class="card-tag accent-tag">EXPRESSION</span>
+            </div>
+            <div class="card-body">
+                <div class="control-row">
+                    <label for="eye-mood">Mood / Expression</label>
+                    <select id="eye-mood" class="select-field">
+                        <option value="neutral">Neutral Focus</option>
+                        <option value="happy">Happy Curved</option>
+                        <option value="skeptical">Skeptical Glance</option>
+                        <option value="angry">Warning / Angry</option>
+                        <option value="sleepy">Sleepy / Idle</option>
+                        <option value="glitch">Matrix Glitch</option>
+                    </select>
+                </div>
+
+                <div class="eyes-preview-box">
+                    <div class="eye-graphic left-eye"></div>
+                    <div class="eye-graphic right-eye"></div>
+                </div>
+
+                <div class="control-grid-2col">
+                    <div class="control-sub">
+                        <label for="blink-interval">Blink Interval (s)</label>
+                        <input type="number" id="blink-interval" min="1" max="30" value="4" class="input-field">
+                    </div>
+                    <div class="control-sub">
+                        <label for="eye-motion">Tracking Motion</label>
+                        <select id="eye-motion" class="select-field">
+                            <option value="auto">Autonomous</option>
+                            <option value="mouse">Follow Cursor</option>
+                            <option value="static">Fixed Ahead</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Panel 3: PC System Monitor -->
+        <section class="card stats-panel">
+            <div class="card-header">
+                <h2>PC Telemetry Monitor</h2>
+                <span class="card-tag">AGENT METRICS</span>
+            </div>
+            <div class="card-body">
+                <div class="stat-gauges">
+                    <div class="stat-card">
+                        <div class="stat-title">CPU USAGE</div>
+                        <div class="stat-big" id="cpu-stat">0<small>%</small></div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="cpu-bar" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title">RAM USAGE</div>
+                        <div class="stat-big" id="ram-stat">0<small>%</small></div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="ram-bar" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="meta-stats-list">
+                    <div class="meta-row">
+                        <span class="meta-lbl">CPU Temp:</span>
+                        <span class="meta-val" id="temp-stat">N/A</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-lbl">Network TX / RX:</span>
+                        <span class="meta-val" id="net-stat">0.0 KB/s / 0.0 KB/s</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-lbl">Host Uptime:</span>
+                        <span class="meta-val" id="host-uptime">0h 00m</span>
+                    </div>
+                </div>
+
+                <div class="placeholder-notice">
+                    <span class="icon">ℹ</span> Populated via Python Agent (<code>pc-agent/agent.py</code>).
+                </div>
+            </div>
+        </section>
+
+        <!-- Panel 4: QR Code & Custom Message -->
+        <section class="card tool-panel">
+            <div class="card-header">
+                <h2>OLED QR Code & Message</h2>
+                <span class="card-tag">BROADCAST</span>
+            </div>
+            <div class="card-body">
+                <div class="control-row">
+                    <label for="qr-data">QR Code Payload / URL</label>
+                    <input type="text" id="qr-data" placeholder="https://my-dashboard.local" class="input-field">
+                </div>
+                <div class="control-row">
+                    <label for="custom-text">Custom OLED Notification</label>
+                    <input type="text" id="custom-text" placeholder="Hello from DeskOS!" maxlength="32"
+                        class="input-field">
+                </div>
+                <div class="action-buttons">
+                    <button class="btn btn-secondary" id="btn-preview">Preview on OLED</button>
+                    <button class="btn btn-primary" id="btn-send">Push to Device</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Panel 5: Wi-Fi & Network Diagnostics -->
+        <section class="card network-panel">
+            <div class="card-header">
+                <h2>Wi-Fi & Hardware Network</h2>
+                <span class="card-tag">DIAGNOSTICS</span>
+            </div>
+            <div class="card-body">
+                <div class="network-info-grid">
+                    <div class="info-item">
+                        <span class="lbl">SSID:</span>
+                        <span class="val" id="wifi-ssid">Not Connected</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="lbl">Signal Strength (RSSI):</span>
+                        <span class="val" id="wifi-rssi">- dBm</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="lbl">Device IP:</span>
+                        <span class="val" id="wifi-ip">127.0.0.1</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="lbl">MAC Address:</span>
+                        <span class="val" id="wifi-mac">24:6F:28:XX:XX:XX</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="lbl">I2C Controller:</span>
+                        <span class="val text-accent">SH1106 (0x3C)</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="lbl">Flash Memory:</span>
+                        <span class="val">4 MB SPI</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <p>ESP32 DeskOS &bull; Autonomous Desktop Companion &bull; Firmware v0.1 Foundation</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

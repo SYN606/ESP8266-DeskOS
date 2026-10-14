@@ -1,0 +1,302 @@
+#include "display.h"
+#include "network.h"
+
+DeskDisplay deskDisplay;
+TelemetryData globalTelemetry;
+
+DeskDisplay::DeskDisplay()
+    : m_u8g2(U8G2_R0, PIN_OLED_RST),
+      m_initialized(false),
+      m_mode(DisplayMode::STARTUP),
+      m_brightness(255),
+      m_lastDrawMs(0),
+      m_startupUntilMs(0) {
+    strncpy(m_msgLine1, "Hello from", sizeof(m_msgLine1));
+    strncpy(m_msgLine2, "ESP32 DeskOS!", sizeof(m_msgLine2));
+}
+
+bool DeskDisplay::begin() {
+    Serial.println(F("[DISPLAY] Initializing I2C bus..."));
+#if defined(ESP8266)
+    Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+    Wire.setClock(I2C_CLOCK_SPEED);
+#else
+    bool wireOk = Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, I2C_CLOCK_SPEED);
+    if (!wireOk) {
+        Serial.println(F("[DISPLAY] ERROR: Failed to configure I2C pins."));
+        return false;
+    }
+#endif
+
+    Serial.printf("[DISPLAY] I2C configured on SDA: GPIO%d, SCL: GPIO%d at %u kHz\n",
+                  PIN_I2C_SDA, PIN_I2C_SCL, I2C_CLOCK_SPEED / 1000);
+
+#if OLED_CONTROLLER_SH1106
+    Serial.println(F("[DISPLAY] Controller configured: SH1106 (1.3\" 128x64)"));
+#else
+    Serial.println(F("[DISPLAY] Controller configured: SSD1306 (0.96\" 128x64)"));
+#endif
+
+    Serial.println(F("[DISPLAY] Initializing U8g2 driver..."));
+    m_initialized = m_u8g2.begin();
+
+    if (m_initialized) {
+        m_u8g2.setContrast(m_brightness);
+        m_startupUntilMs = millis() + 3000; // Show startup splash for 3 seconds
+        Serial.println(F("[DISPLAY] U8g2 driver initialized successfully."));
+    } else {
+        Serial.println(F("[DISPLAY] WARNING: U8g2 begin returned false."));
+    }
+
+    return m_initialized;
+}
+
+void DeskDisplay::setBrightness(uint8_t level) {
+    m_brightness = level;
+    if (m_initialized) {
+        m_u8g2.setContrast(level);
+    }
+}
+
+void DeskDisplay::setMode(DisplayMode mode) {
+    m_mode = mode;
+}
+
+void DeskDisplay::setMode(const char* modeStr) {
+    if (!modeStr) return;
+    if (strcasecmp(modeStr, "eyes") == 0 || strcasecmp(modeStr, "robot_eyes") == 0) m_mode = DisplayMode::ROBOT_EYES;
+    else if (strcasecmp(modeStr, "stats") == 0 || strcasecmp(modeStr, "pc_stats") == 0) m_mode = DisplayMode::PC_STATS;
+    else if (strcasecmp(modeStr, "clock") == 0) m_mode = DisplayMode::CLOCK;
+    else if (strcasecmp(modeStr, "msg") == 0 || strcasecmp(modeStr, "message") == 0) m_mode = DisplayMode::CUSTOM_MESSAGE;
+    else if (strcasecmp(modeStr, "startup") == 0) m_mode = DisplayMode::STARTUP;
+}
+
+const char* DeskDisplay::getModeString() const {
+    switch (m_mode) {
+        case DisplayMode::ROBOT_EYES: return "ROBOT_EYES";
+        case DisplayMode::PC_STATS: return "PC_STATS";
+        case DisplayMode::CLOCK: return "CLOCK";
+        case DisplayMode::CUSTOM_MESSAGE: return "CUSTOM_MESSAGE";
+        default: return "STARTUP";
+    }
+}
+
+void DeskDisplay::nextMode() {
+    switch (m_mode) {
+        case DisplayMode::ROBOT_EYES: m_mode = DisplayMode::PC_STATS; break;
+        case DisplayMode::PC_STATS: m_mode = DisplayMode::CLOCK; break;
+        case DisplayMode::CLOCK: m_mode = DisplayMode::CUSTOM_MESSAGE; break;
+        case DisplayMode::CUSTOM_MESSAGE: m_mode = DisplayMode::ROBOT_EYES; break;
+        default: m_mode = DisplayMode::ROBOT_EYES; break;
+    }
+}
+
+void DeskDisplay::setMessage(const char* l1, const char* l2) {
+    if (l1) strncpy(m_msgLine1, l1, sizeof(m_msgLine1) - 1);
+    if (l2) strncpy(m_msgLine2, l2, sizeof(m_msgLine2) - 1);
+    m_msgLine1[sizeof(m_msgLine1) - 1] = '\0';
+    m_msgLine2[sizeof(m_msgLine2) - 1] = '\0';
+}
+
+uint8_t DeskDisplay::scanI2CBus() {
+    Serial.println(F("----------------------------------------"));
+    Serial.println(F("[I2C] Scanning I2C bus for devices..."));
+
+    uint8_t count = 0;
+    for (uint8_t address = 1; address < 127; ++address) {
+        Wire.beginTransmission(address);
+        uint8_t error = Wire.endTransmission();
+
+        if (error == 0) {
+            Serial.printf("[I2C] Found device at address 0x%02X", address);
+            if (address == 0x3C || address == 0x3D) {
+                Serial.print(F(" (Likely OLED display - SH1106 or SSD1306)"));
+            }
+            Serial.println();
+            count++;
+        } else if (error == 4) {
+            Serial.printf("[I2C] Unknown error at address 0x%02X\n", address);
+        }
+    }
+
+    if (count == 0) {
+        Serial.println(F("[I2C] No I2C devices found. Check wiring and pullups."));
+    } else {
+        Serial.printf("[I2C] Scan complete. Found %u device(s).\n", count);
+    }
+    Serial.println(F("----------------------------------------"));
+
+    return count;
+}
+
+void DeskDisplay::drawStartupScreen() {
+    m_u8g2.clearBuffer();
+    m_u8g2.drawRFrame(0, 0, 128, 64, 2);
+    m_u8g2.drawHLine(0, 18, 128);
+
+    m_u8g2.setFont(u8g2_font_7x14B_tr);
+    const char* title = "ESP32 DeskOS";
+    m_u8g2.drawStr((128 - m_u8g2.getStrWidth(title)) / 2, 14, title);
+
+    const char* status = "SYSTEM ONLINE";
+    m_u8g2.drawStr((128 - m_u8g2.getStrWidth(status)) / 2, 38, status);
+
+    m_u8g2.setFont(u8g2_font_6x10_tr);
+    const char* version = "Firmware v0.1";
+    m_u8g2.drawStr((128 - m_u8g2.getStrWidth(version)) / 2, 54, version);
+    m_u8g2.sendBuffer();
+}
+
+void DeskDisplay::drawRobotEyes() {
+    m_u8g2.clearBuffer();
+    robotEyes.draw(m_u8g2);
+    m_u8g2.sendBuffer();
+}
+
+void DeskDisplay::drawPCStats(const TelemetryData& stats) {
+    m_u8g2.clearBuffer();
+
+    // Top Title Bar
+    m_u8g2.setFont(u8g2_font_6x10_tr);
+    m_u8g2.drawStr(2, 9, "PC TELEMETRY");
+    m_u8g2.drawHLine(0, 11, 128);
+
+    if (!stats.hasData) {
+        m_u8g2.setFont(u8g2_font_6x10_tr);
+        m_u8g2.drawStr(12, 30, "WAITING FOR AGENT");
+        m_u8g2.setFont(u8g2_font_5x8_tr);
+        m_u8g2.drawStr(10, 44, "Run: pc-agent/agent.py");
+        m_u8g2.sendBuffer();
+        return;
+    }
+
+    // CPU Bar (Y: 16 - 28)
+    m_u8g2.setFont(u8g2_font_6x10_tr);
+    m_u8g2.drawStr(2, 23, "CPU");
+    char cpuBuf[8];
+    snprintf(cpuBuf, sizeof(cpuBuf), "%d%%", (int)stats.cpuPercent);
+    m_u8g2.drawStr(102, 23, cpuBuf);
+
+    // CPU progress bar outline (x=26, y=16, w=72, h=8)
+    m_u8g2.drawFrame(26, 16, 72, 8);
+    int cpuFill = (int)(constrain(stats.cpuPercent, 0.0f, 100.0f) * 68 / 100.0f);
+    if (cpuFill > 0) m_u8g2.drawBox(28, 18, cpuFill, 4);
+
+    // RAM Bar (Y: 32 - 44)
+    m_u8g2.drawStr(2, 39, "RAM");
+    char ramBuf[8];
+    snprintf(ramBuf, sizeof(ramBuf), "%d%%", (int)stats.ramPercent);
+    m_u8g2.drawStr(102, 39, ramBuf);
+
+    // RAM progress bar outline (x=26, y=32, w=72, h=8)
+    m_u8g2.drawFrame(26, 32, 72, 8);
+    int ramFill = (int)(constrain(stats.ramPercent, 0.0f, 100.0f) * 68 / 100.0f);
+    if (ramFill > 0) m_u8g2.drawBox(28, 34, ramFill, 4);
+
+    // Bottom Info Bar (Y: 48 - 64)
+    m_u8g2.drawHLine(0, 48, 128);
+    m_u8g2.setFont(u8g2_font_5x8_tr);
+
+    char upBuf[32];
+    snprintf(upBuf, sizeof(upBuf), "UP: %s", stats.uptimeStr);
+    m_u8g2.drawStr(2, 59, upBuf);
+
+    char netBuf[32];
+    snprintf(netBuf, sizeof(netBuf), "NET: %.0fK/s", stats.netKbIn + stats.netKbOut);
+    m_u8g2.drawStr(70, 59, netBuf);
+
+    m_u8g2.sendBuffer();
+}
+
+void DeskDisplay::drawClock(const char* timeStr, const char* dateStr, bool wifiOk, const char* ipStr) {
+    m_u8g2.clearBuffer();
+
+    // Top status indicator
+    m_u8g2.setFont(u8g2_font_5x8_tr);
+    if (wifiOk) {
+        m_u8g2.drawStr(2, 8, "WIFI: CONNECTED");
+        if (ipStr) m_u8g2.drawStr(82, 8, ipStr);
+    } else {
+        m_u8g2.drawStr(2, 8, "AP: DeskOS-Setup");
+        m_u8g2.drawStr(80, 8, "192.168.4.1");
+    }
+    m_u8g2.drawHLine(0, 10, 128);
+
+    // Digital Clock in Center
+    m_u8g2.setFont(u8g2_font_inb19_mn);
+    int16_t xTime = (128 - m_u8g2.getStrWidth(timeStr)) / 2;
+    m_u8g2.drawStr(xTime, 38, timeStr);
+
+    // Date in Bottom
+    m_u8g2.setFont(u8g2_font_6x10_tr);
+    int16_t xDate = (128 - m_u8g2.getStrWidth(dateStr)) / 2;
+    m_u8g2.drawStr(xDate, 56, dateStr);
+
+    m_u8g2.sendBuffer();
+}
+
+void DeskDisplay::drawCustomMessage(const char* line1, const char* line2) {
+    m_u8g2.clearBuffer();
+    m_u8g2.drawRFrame(0, 0, 128, 64, 3);
+    m_u8g2.drawHLine(0, 16, 128);
+
+    m_u8g2.setFont(u8g2_font_6x10_tr);
+    const char* header = "MESSAGE";
+    m_u8g2.drawStr((128 - m_u8g2.getStrWidth(header)) / 2, 12, header);
+
+    m_u8g2.setFont(u8g2_font_7x14B_tr);
+    if (line1 && strlen(line1) > 0) {
+        m_u8g2.drawStr((128 - m_u8g2.getStrWidth(line1)) / 2, 35, line1);
+    }
+    m_u8g2.setFont(u8g2_font_6x10_tr);
+    if (line2 && strlen(line2) > 0) {
+        m_u8g2.drawStr((128 - m_u8g2.getStrWidth(line2)) / 2, 52, line2);
+    }
+
+    m_u8g2.sendBuffer();
+}
+
+void DeskDisplay::update() {
+    if (!m_initialized) return;
+
+    unsigned long now = millis();
+
+    // Check transition from startup screen
+    if (m_mode == DisplayMode::STARTUP) {
+        if (now >= m_startupUntilMs) {
+            m_mode = DisplayMode::ROBOT_EYES; // Default main mode
+        } else {
+            return; // Maintain startup splash until timer
+        }
+    }
+
+    // Refresh rate control
+    uint16_t frameInterval = (m_mode == DisplayMode::ROBOT_EYES) ? 30 : 250;
+    if (now - m_lastDrawMs < frameInterval) {
+        return;
+    }
+    m_lastDrawMs = now;
+
+    switch (m_mode) {
+        case DisplayMode::ROBOT_EYES:
+            robotEyes.update();
+            drawRobotEyes();
+            break;
+        case DisplayMode::PC_STATS:
+            drawPCStats(globalTelemetry);
+            break;
+        case DisplayMode::CLOCK: {
+            char timeBuf[16];
+            char dateBuf[32];
+            deskNetwork.getTimeString(timeBuf, sizeof(timeBuf));
+            deskNetwork.getDateString(dateBuf, sizeof(dateBuf));
+            drawClock(timeBuf, dateBuf, deskNetwork.isConnected(), deskNetwork.getIPString());
+            break;
+        }
+        case DisplayMode::CUSTOM_MESSAGE:
+            drawCustomMessage(m_msgLine1, m_msgLine2);
+            break;
+        default:
+            break;
+    }
+}

@@ -1,0 +1,204 @@
+#include <Arduino.h>
+#include <ArduinoJson.h>
+#include "config.h"
+#include "pins.h"
+#include "display.h"
+#include "eyes.h"
+#include "network.h"
+#include "telemetry.h"
+
+static unsigned long lastHeartbeatMs = 0;
+constexpr unsigned long HEARTBEAT_INTERVAL_MS = 10000;
+
+// Buffer for serial line input
+static char serialBuffer[256];
+static uint16_t serialIndex = 0;
+
+void processSerialLine(const char* line) {
+    if (!line || strlen(line) == 0) return;
+
+    // Check if JSON command
+    if (line[0] == '{') {
+        JsonDocument doc;
+        DeserializationError err = deserializeJson(doc, line);
+        if (err) {
+            Serial.printf("[SERIAL] JSON parse error: %s\n", err.c_str());
+            return;
+        }
+
+        const char* cmd = doc["cmd"];
+        if (!cmd) return;
+
+        if (strcmp(cmd, "stats") == 0) {
+            globalTelemetry.cpuPercent = doc["cpu"] | 0.0f;
+            globalTelemetry.ramPercent = doc["ram"] | 0.0f;
+            const char* up = doc["uptime"];
+            if (up) strncpy(globalTelemetry.uptimeStr, up, sizeof(globalTelemetry.uptimeStr) - 1);
+            globalTelemetry.netKbIn = doc["net_in"] | 0.0f;
+            globalTelemetry.netKbOut = doc["net_out"] | 0.0f;
+            globalTelemetry.hasData = true;
+            globalTelemetry.lastReceivedMs = millis();
+            // Automatically switch to PC stats if user hasn't explicitly locked another mode
+            if (doc["auto_show"] | false) {
+                deskDisplay.setMode(DisplayMode::PC_STATS);
+            }
+            Serial.println(F("{\"ack\":\"stats_updated\"}"));
+        } else if (strcmp(cmd, "mode") == 0) {
+            const char* m = doc["val"];
+            if (m) deskDisplay.setMode(m);
+            Serial.printf("{\"ack\":\"mode_set\",\"mode\":\"%s\"}\n", deskDisplay.getModeString());
+        } else if (strcmp(cmd, "mood") == 0) {
+            const char* m = doc["val"];
+            if (m) robotEyes.setMood(m);
+            Serial.printf("{\"ack\":\"mood_set\",\"mood\":\"%s\"}\n", robotEyes.getMoodString());
+        } else if (strcmp(cmd, "blink") == 0) {
+            robotEyes.triggerBlink();
+            Serial.println(F("{\"ack\":\"blink\"}"));
+        } else if (strcmp(cmd, "msg") == 0) {
+            const char* l1 = doc["line1"];
+            const char* l2 = doc["line2"];
+            deskDisplay.setMessage(l1, l2);
+            deskDisplay.setMode(DisplayMode::CUSTOM_MESSAGE);
+            Serial.println(F("{\"ack\":\"message_shown\"}"));
+        } else if (strcmp(cmd, "brightness") == 0) {
+            uint8_t b = doc["val"] | 255;
+            deskDisplay.setBrightness(b);
+            Serial.printf("{\"ack\":\"brightness_set\",\"val\":%d}\n", b);
+        }
+        return;
+    }
+
+    // Keyboard shortcuts for serial monitor interaction
+    char c = line[0];
+    switch (c) {
+        case 'e':
+        case 'E':
+            deskDisplay.setMode(DisplayMode::ROBOT_EYES);
+            Serial.println(F("[COMMAND] Switched to ROBOT EYES"));
+            break;
+        case 's':
+        case 'S':
+            deskDisplay.setMode(DisplayMode::PC_STATS);
+            Serial.println(F("[COMMAND] Switched to PC STATS"));
+            break;
+        case 'c':
+        case 'C':
+            deskDisplay.setMode(DisplayMode::CLOCK);
+            Serial.println(F("[COMMAND] Switched to CLOCK"));
+            break;
+        case 'm':
+        case 'M':
+            deskDisplay.setMode(DisplayMode::CUSTOM_MESSAGE);
+            Serial.println(F("[COMMAND] Switched to MESSAGE"));
+            break;
+        case 'b':
+        case 'B':
+            robotEyes.triggerBlink();
+            Serial.println(F("[COMMAND] Blink triggered"));
+            break;
+        case 'h':
+        case 'H':
+            robotEyes.setMood(EyeMood::HAPPY);
+            Serial.println(F("[COMMAND] Mood: HAPPY"));
+            break;
+        case 'n':
+        case 'N':
+            robotEyes.setMood(EyeMood::NEUTRAL);
+            Serial.println(F("[COMMAND] Mood: NEUTRAL"));
+            break;
+        case 'a':
+        case 'A':
+            robotEyes.setMood(EyeMood::ANGRY);
+            Serial.println(F("[COMMAND] Mood: ANGRY"));
+            break;
+        case 'k':
+        case 'K':
+            robotEyes.setMood(EyeMood::SKEPTICAL);
+            Serial.println(F("[COMMAND] Mood: SKEPTICAL"));
+            break;
+        case ' ':
+            deskDisplay.nextMode();
+            Serial.printf("[COMMAND] Next Mode: %s\n", deskDisplay.getModeString());
+            break;
+        default:
+            Serial.printf("[COMMAND] Unknown key: '%c'. Keys: e=eyes, s=stats, c=clock, m=msg, b=blink, h=happy, a=angry, space=next\n", c);
+            break;
+    }
+}
+
+void handleSerialInput() {
+    while (Serial.available()) {
+        char ch = (char)Serial.read();
+        if (ch == '\r' || ch == '\n') {
+            if (serialIndex > 0) {
+                serialBuffer[serialIndex] = '\0';
+                processSerialLine(serialBuffer);
+                serialIndex = 0;
+            }
+        } else if (serialIndex < sizeof(serialBuffer) - 1) {
+            serialBuffer[serialIndex++] = ch;
+        }
+    }
+}
+
+void setup() {
+    Serial.begin(SERIAL_BAUD);
+    delay(400);
+
+    Serial.println();
+    Serial.println(F("========================================"));
+    Serial.println(F("           ESP32 DeskOS v0.1            "));
+    Serial.println(F("  Desktop Companion & Monitor Firmware  "));
+    Serial.println(F("========================================"));
+
+#if defined(ESP32)
+    Serial.printf("[SYSTEM] Chip Model: %s (Rev %d)\n", ESP.getChipModel(), ESP.getChipRevision());
+    Serial.printf("[SYSTEM] CPU Frequency: %u MHz\n", ESP.getCpuFreqMHz());
+#elif defined(ESP8266)
+    Serial.printf("[SYSTEM] Chip: ESP8266EX (Chip ID: 0x%06X)\n", ESP.getChipId());
+    Serial.printf("[SYSTEM] CPU Frequency: %u MHz\n", ESP.getCpuFreqMHz());
+#endif
+    Serial.printf("[SYSTEM] Free Heap: %u bytes\n", ESP.getFreeHeap());
+
+    // 1. Initialize Display
+    Serial.println(F("[SYSTEM] Initializing display subsystem..."));
+    bool displayReady = deskDisplay.begin();
+    deskDisplay.scanI2CBus();
+
+    if (displayReady) {
+        deskDisplay.drawStartupScreen();
+    }
+
+    // 2. Initialize Wi-Fi and Web Server
+    Serial.println(F("[SYSTEM] Initializing network subsystem..."));
+    deskNetwork.begin();
+
+    Serial.println(F("========================================"));
+    Serial.println(F("[SYSTEM] DeskOS Ready!"));
+    Serial.println(F("[SYSTEM] Press: 'e'=eyes, 's'=stats, 'c'=clock, 'm'=msg, 'b'=blink, space=next mode"));
+    Serial.println(F("========================================"));
+}
+
+void loop() {
+    // 1. Process network clients (dashboard HTTP requests)
+    deskNetwork.update();
+
+    // 2. Process serial commands from PC Agent or keyboard
+    handleSerialInput();
+
+    // 3. Update OLED animations / current mode
+    deskDisplay.update();
+
+    // 4. Periodic heartbeat
+    unsigned long now = millis();
+    if (now - lastHeartbeatMs >= HEARTBEAT_INTERVAL_MS) {
+        lastHeartbeatMs = now;
+        Serial.printf("[HEARTBEAT] Mode: %s | Uptime: %lu s | Free Heap: %u bytes | WiFi: %s\n",
+                      deskDisplay.getModeString(),
+                      now / 1000,
+                      ESP.getFreeHeap(),
+                      deskNetwork.isConnected() ? deskNetwork.getSSID() : "AP-Mode");
+    }
+
+    delay(2);
+}
