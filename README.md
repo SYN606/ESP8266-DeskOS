@@ -8,25 +8,37 @@ It features lifelike animated robot eyes, real-time PC telemetry gauges, a Windo
 
 ## ✨ Features
 
-- 👁️ **Lifelike Robot Eye Animations**:
+- 👁️ **Lifelike Robot Eye & Character Animations**:
   - **Asymmetric Eyelid Dynamics**: Upper eyelids drop ~82% while lower lids rise ~18% for true biological blinking.
   - **Double-Blinks**: Spontaneous organic double-blinks (Pixar/Anki inspired).
   - **Saccadic Gaze & Micro-Tremors**: Critically damped spring physics for ballistic glance shifts combined with sub-pixel physiological ocular drift.
-  - **3D Cornea Parallax**: Specular light reflections shift dynamically as the eyes turn, giving an illusion of 3D spherical curved glass.
-  - **6 Expressive Moods**: *Neutral*, *Happy* (smiling crescents), *Skeptical* (arched brow & squint), *Angry* (furrowed brow), *Sleepy* (drooping lids), and *Surprised / Curious* (dilated round gaze).
+  - **Active Dark Pupils & Specular Glint**: Black pupils that actively track the gaze in all directions with specular reflections.
+  - **Articulated 3-Point Curved Eyebrows**: Inner, mid-arch, and outer tail control points with dynamic inertial secondary motion and blink bounce physics.
+  - **Unique Character Faces & Moods**:
+    - **Neutral**: Iconic balanced robot companion.
+    - **Happy**: Smiling cheek cutouts and joyous upward brows.
+    - **Skeptical**: High questioning arched brow and squinted eye.
+    - **Angry**: Fierce downward V-chevron brow furrow.
+    - **Sleepy**: Heavy drooping eyelids.
+    - **Love**: Pulsing heart eyes.
+    - **Wink**: Cheeky winking eye with cheerful smile arc.
+    - **Cat Face**: Pointed 3D ears, feline vertical slit pupils, cute nose & whiskers!
+    - **Owl Face**: Large feathery facial discs, nocturnal plumicorn ear tufts & hooked center beak!
 - 📊 **Real-Time PC Telemetry Monitor**:
   - Live CPU % utilization, RAM % memory gauge, System Uptime, and Network I/O throughput (KB/s).
   - Smooth linear interpolation (lerp) for fluid analog-style bar gauges.
 - 🎵 **Live PC Music Player ("Now Playing")**:
-  - Automatically hooks into Windows Media (`winsdk`) to detect music playing from **Spotify**, **YouTube**, **Apple Music**, **VLC**, etc.
+  - Automatically hooks into Windows Media (`winsdk`) and Spotify desktop (`ctypes`) to detect music playing from **Spotify**, **YouTube**, **Apple Music**, **VLC**, etc.
   - Renders an animated 5-bar audio equalizer, spinning vinyl disc graphic, scrolling marquee track title, and artist name.
-  - Automatically switches to the music player screen when music starts, and returns to PC stats when stopped or paused.
+  - Retains song title and artist when paused with dedicated `"MUSIC PAUSED"` screen.
 - 📱 **Dynamic QR Code Generator**:
   - Generates sharp 2x scaled QR codes (Version 3) directly on the OLED.
   - Instant one-shot push via CLI (`--qr "https://..."`) or the Web Dashboard.
+- 🕒 **PC-Synced Live Clock & Calendar**:
+  - Automatically synchronizes with your computer's local clock over USB (`SYNC: PC AGENT`).
 - 🌐 **Embedded Wi-Fi Web Dashboard**:
   - Futuristic dark-themed web interface hosted directly on the ESP.
-  - Switch display modes, trigger blinks, adjust screen contrast/brightness, change moods, and push custom OLED message banners.
+  - Switch display modes, trigger blinks, adjust screen contrast/brightness, and change character moods.
 - ⚡ **High-Performance Non-Blocking Architecture**:
   - Overclocked to 160MHz with high-speed 800kHz I²C bus.
   - 60 FPS animation tick rate with zero blocking `delay()` calls.
@@ -63,7 +75,7 @@ ESP8266-DeskOS/
 ├── src/
 │   ├── main.cpp                # System bootloader, serial commands & main loop
 │   ├── display.h / .cpp        # U8g2 display engine & screen renderers
-│   ├── eyes.h / .cpp           # Physics-based robot eyes animation system
+│   ├── eyes.h / .cpp           # Physics-based robot, cat & owl animations
 │   ├── network.h / .cpp        # Wi-Fi AP/STA mode, NTP time & REST dashboard
 │   └── telemetry.h             # Shared telemetry & media state structures
 │
@@ -170,7 +182,7 @@ The agent auto-detects your COM port and starts streaming live CPU/RAM stats and
 ### Serial Monitor Commands (115200 Baud)
 
 When connected to `.\scripts\monitor.ps1`, press:
-- `e` — Switch to **Robot Eyes**
+- `e` — Switch to **Robot / Character Eyes**
 - `s` — Switch to **PC Telemetry Monitor**
 - `p` — Switch to **Music Player**
 - `q` — Switch to **QR Code**
@@ -180,7 +192,12 @@ When connected to `.\scripts\monitor.ps1`, press:
 - `n` — Set mood to **Neutral**
 - `k` — Set mood to **Skeptical**
 - `a` — Set mood to **Angry**
-- `u` — Set mood to **Surprised**
+- `z` — Set mood to **Sleepy**
+- `l` — Set mood to **Love** (Heart Eyes)
+- `w` — Set mood to **Wink**
+- `t` — Set face to **Cat** (Pointed Ears & Slit Pupils)
+- `o` — Set face to **Owl** (Round Eyes, Horns & Beak)
+- `m` — Cycle to **Next Mood / Face**
 - `[Space]` — Cycle to next display mode
 
 ### PC Agent CLI Commands

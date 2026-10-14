@@ -67,12 +67,10 @@ select:focus,input:focus{border-color:var(--accent);}
       <option value="skeptical">Skeptical</option>
       <option value="angry">Warning / Angry</option>
       <option value="sleepy">Sleepy / Idle</option>
-      <option value="surprised">Surprised / Curious</option>
       <option value="love">Heart Eyes (Love)</option>
       <option value="wink">Playful Wink</option>
-      <option value="confused">Confused</option>
-      <option value="sad">Sad / Puppy Eyes</option>
-      <option value="scan">Tactical Scanner</option>
+      <option value="cat">Cat Face (Ears & Whiskers)</option>
+      <option value="owl">Owl Face (Horns & Beak)</option>
     </select>
   </div>
 </div>

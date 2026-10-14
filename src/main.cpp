@@ -135,10 +135,10 @@ void processSerialLine(const char* line) {
             robotEyes.setMood(EyeMood::SKEPTICAL);
             Serial.println(F("[COMMAND] Mood: SKEPTICAL"));
             break;
-        case 'u':
-        case 'U':
-            robotEyes.setMood(EyeMood::SURPRISED);
-            Serial.println(F("[COMMAND] Mood: SURPRISED"));
+        case 'z':
+        case 'Z':
+            robotEyes.setMood(EyeMood::SLEEPY);
+            Serial.println(F("[COMMAND] Mood: SLEEPY"));
             break;
         case 'l':
         case 'L':
@@ -150,23 +150,18 @@ void processSerialLine(const char* line) {
             robotEyes.setMood(EyeMood::WINK);
             Serial.println(F("[COMMAND] Mood: WINK"));
             break;
-        case 'd':
-        case 'D':
-            robotEyes.setMood(EyeMood::SAD);
-            Serial.println(F("[COMMAND] Mood: SAD (Puppy Eyes)"));
-            break;
-        case 'x':
-        case 'X':
-            robotEyes.setMood(EyeMood::CONFUSED);
-            Serial.println(F("[COMMAND] Mood: CONFUSED"));
-            break;
-        case 'r':
-        case 'R':
-            robotEyes.setMood(EyeMood::SCANNING);
-            Serial.println(F("[COMMAND] Mood: SCANNING"));
+        case 't':
+        case 'T':
+            robotEyes.setMood(EyeMood::CAT);
+            Serial.println(F("[COMMAND] Mood: CAT (Ears, Slit Pupils, Whiskers)"));
             break;
         case 'o':
         case 'O':
+            robotEyes.setMood(EyeMood::OWL);
+            Serial.println(F("[COMMAND] Mood: OWL (Round Eyes, Horns, Beak)"));
+            break;
+        case 'm':
+        case 'M':
             robotEyes.nextMood();
             Serial.printf("[COMMAND] Next Mood: %s\n", robotEyes.getMoodString());
             break;
@@ -175,7 +170,7 @@ void processSerialLine(const char* line) {
             Serial.printf("[COMMAND] Next Mode: %s\n", deskDisplay.getModeString());
             break;
         default:
-            Serial.printf("[COMMAND] Unknown key: '%c'. Keys: h=happy, k=skeptical, a=angry, u=surprised, l=love, w=wink, d=sad, x=confused, r=scan, o=next mood, space=next screen\n", c);
+            Serial.printf("[COMMAND] Unknown key: '%c'. Keys: h=happy, k=skeptical, a=angry, z=sleepy, l=love, w=wink, t=cat, o=owl, m=next mood, space=next screen\n", c);
             break;
     }
 }

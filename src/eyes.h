@@ -9,12 +9,10 @@ enum class EyeMood {
     SKEPTICAL,
     ANGRY,
     SLEEPY,
-    SURPRISED,
     LOVE,
     WINK,
-    CONFUSED,
-    SAD,
-    SCANNING
+    CAT,
+    OWL
 };
 
 class RobotEyes {
@@ -132,6 +130,8 @@ private:
     void drawCurvedEyebrow(U8G2& u8g2, int16_t xIn, int16_t yIn, int16_t xMid, int16_t yMid, int16_t xOut, int16_t yOut, bool isLeft);
     void drawHeartEye(U8G2& u8g2, int16_t cx, int16_t cy, float scale);
     void drawWinkEye(U8G2& u8g2, int16_t cx, int16_t cy, float w);
+    void drawCatEyes(U8G2& u8g2, int16_t xL, int16_t yL, int16_t xR, int16_t yR, float pOffX, float pOffY, float blinkProgress);
+    void drawOwlEyes(U8G2& u8g2, float pOffX, float pOffY, float blinkProgress);
 };
 
 extern RobotEyes robotEyes;
