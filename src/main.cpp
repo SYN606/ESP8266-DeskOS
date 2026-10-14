@@ -136,12 +136,42 @@ void processSerialLine(const char* line) {
             robotEyes.setMood(EyeMood::SURPRISED);
             Serial.println(F("[COMMAND] Mood: SURPRISED"));
             break;
+        case 'l':
+        case 'L':
+            robotEyes.setMood(EyeMood::LOVE);
+            Serial.println(F("[COMMAND] Mood: LOVE (Heart Eyes)"));
+            break;
+        case 'w':
+        case 'W':
+            robotEyes.setMood(EyeMood::WINK);
+            Serial.println(F("[COMMAND] Mood: WINK"));
+            break;
+        case 'd':
+        case 'D':
+            robotEyes.setMood(EyeMood::SAD);
+            Serial.println(F("[COMMAND] Mood: SAD (Puppy Eyes)"));
+            break;
+        case 'x':
+        case 'X':
+            robotEyes.setMood(EyeMood::CONFUSED);
+            Serial.println(F("[COMMAND] Mood: CONFUSED"));
+            break;
+        case 'r':
+        case 'R':
+            robotEyes.setMood(EyeMood::SCANNING);
+            Serial.println(F("[COMMAND] Mood: SCANNING"));
+            break;
+        case 'o':
+        case 'O':
+            robotEyes.nextMood();
+            Serial.printf("[COMMAND] Next Mood: %s\n", robotEyes.getMoodString());
+            break;
         case ' ':
             deskDisplay.nextMode();
             Serial.printf("[COMMAND] Next Mode: %s\n", deskDisplay.getModeString());
             break;
         default:
-            Serial.printf("[COMMAND] Unknown key: '%c'. Keys: e=eyes, s=stats, p=music, q=qr, c=clock, b=blink, h=happy, a=angry, u=surprised, space=next\n", c);
+            Serial.printf("[COMMAND] Unknown key: '%c'. Keys: h=happy, k=skeptical, a=angry, u=surprised, l=love, w=wink, d=sad, x=confused, r=scan, o=next mood, space=next screen\n", c);
             break;
     }
 }

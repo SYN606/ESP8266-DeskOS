@@ -9,7 +9,12 @@ enum class EyeMood {
     SKEPTICAL,
     ANGRY,
     SLEEPY,
-    SURPRISED
+    SURPRISED,
+    LOVE,
+    WINK,
+    CONFUSED,
+    SAD,
+    SCANNING
 };
 
 class RobotEyes {
@@ -27,6 +32,7 @@ public:
     void setMood(const char* moodStr);
     EyeMood getMood() const { return m_mood; }
     const char* getMoodString() const;
+    void nextMood();
 
     // Trigger an immediate blink
     void triggerBlink();
@@ -43,7 +49,7 @@ private:
     static constexpr int8_t CORNER_RADIUS = 10;
     static constexpr int8_t EYE_SPACING = 18;
 
-    // Dynamic interpolated dimensions & squish
+    // Dynamic interpolated eye dimensions
     float m_leftHeight;
     float m_rightHeight;
     float m_leftWidth;
@@ -52,6 +58,19 @@ private:
     float m_targetRightHeight;
     float m_targetLeftWidth;
     float m_targetRightWidth;
+
+    // Expressive pupil dynamics (size & gaze offset)
+    float m_pupilWidth;
+    float m_pupilHeight;
+    float m_targetPupilWidth;
+    float m_targetPupilHeight;
+
+    float m_pupilOffsetX;
+    float m_pupilOffsetY;
+    float m_targetPupilOffsetX;
+    float m_targetPupilOffsetY;
+    float m_pupilVelX;
+    float m_pupilVelY;
 
     // 3-Point Articulated Curved Eyebrows (Inner, Arch Peak, Outer Tail)
     float m_leftBrowInnerY;
@@ -68,11 +87,11 @@ private:
     float m_targetRightBrowMidY;
     float m_targetRightBrowOuterY;
 
-    // Secondary animation physics: eyebrow inertial lag & elastic bounce
+    // Eyebrow physics
     float m_browInertiaY;
     float m_browBounce;
 
-    // Saccadic gaze spring physics & positions
+    // Saccadic gaze overall head/eye wander spring physics
     float m_offsetX;
     float m_offsetY;
     float m_targetOffsetX;
@@ -101,11 +120,18 @@ private:
     unsigned long m_nextGazeIntervalMs;
     unsigned long m_lastFrameMs;
 
+    // Special animation phases
+    float m_scanPhase;
+    float m_heartPulsePhase;
+
     void updateBlink(unsigned long now);
     void updateGaze(unsigned long now);
     void updateMoodDynamics(unsigned long now);
-    void drawCorneaGlint(U8G2& u8g2, int16_t xCenter, int16_t yCenter, float curW, float curH, bool isLeft);
+
+    void drawSingleEye(U8G2& u8g2, int16_t x, int16_t y, float w, float h, float pW, float pH, float pOffX, float pOffY, bool isLeft);
     void drawCurvedEyebrow(U8G2& u8g2, int16_t xIn, int16_t yIn, int16_t xMid, int16_t yMid, int16_t xOut, int16_t yOut, bool isLeft);
+    void drawHeartEye(U8G2& u8g2, int16_t cx, int16_t cy, float scale);
+    void drawWinkEye(U8G2& u8g2, int16_t cx, int16_t cy, float w);
 };
 
 extern RobotEyes robotEyes;
