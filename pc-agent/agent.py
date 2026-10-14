@@ -11,6 +11,7 @@ import json
 import sys
 import time
 from datetime import datetime, timezone
+from typing import Any
 import psutil
 
 try:
@@ -18,6 +19,7 @@ try:
     import serial.tools.list_ports
     HAS_SERIAL = True
 except ImportError:
+    serial = None  # type: ignore[assignment]
     HAS_SERIAL = False
 
 try:
@@ -27,12 +29,14 @@ try:
     )
     HAS_WINSDK = True
 except ImportError:
+    MediaManager = None  # type: ignore[assignment]
+    PlaybackStatus = None  # type: ignore[assignment]
     HAS_WINSDK = False
 
 
 def detect_serial_port() -> str | None:
     """Auto-detects the connected ESP32/ESP8266 COM port."""
-    if not HAS_SERIAL:
+    if not HAS_SERIAL or serial is None:
         return None
 
     ports = list(serial.tools.list_ports.comports())
@@ -57,21 +61,25 @@ async def get_current_media_track() -> dict:
     """
     Queries the Windows Media Session Manager for currently playing media (Spotify, YouTube, VLC, etc.)
     """
-    if not HAS_WINSDK:
+    if not HAS_WINSDK or MediaManager is None or PlaybackStatus is None:
         return {"title": "", "artist": "", "playing": False}
 
     try:
         manager = await MediaManager.request_async()
+        if not manager:
+            return {"title": "", "artist": "", "playing": False}
+
         session = manager.get_current_session()
 
         # If current session is None, inspect all active sessions for one that is PLAYING
         if not session:
             sessions = manager.get_sessions()
-            for s in sessions:
-                pb = s.get_playback_info()
-                if pb and pb.playback_status == PlaybackStatus.PLAYING:
-                    session = s
-                    break
+            if sessions:
+                for s in sessions:
+                    pb = s.get_playback_info()
+                    if pb and pb.playback_status == PlaybackStatus.PLAYING:
+                        session = s
+                        break
 
         if session:
             pb = session.get_playback_info()
@@ -173,6 +181,10 @@ def collect_snapshot(sample_interval: float = 0.3) -> dict:
 
 def run_serial_stream(port: str, interval: float = 1.5):
     """Streams live telemetry and media packets to the DeskOS OLED."""
+    if not HAS_SERIAL or serial is None:
+        print("[ERROR] pyserial is not installed in the environment.")
+        sys.exit(1)
+
     print(f"[BRIDGE] Connecting to {port} at 115200 baud...")
     try:
         ser = serial.Serial(port, 115200, timeout=1)
@@ -250,6 +262,11 @@ def main():
         indent = 2 if args.pretty else None
         print(json.dumps(snap, indent=indent))
         return
+
+    # Check serial support
+    if not HAS_SERIAL or serial is None:
+        print("[ERROR] pyserial is not installed in the environment.")
+        sys.exit(1)
 
     # Auto-detect or validate port
     port = args.serial
