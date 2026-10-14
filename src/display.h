@@ -63,6 +63,8 @@ private:
 
     unsigned long m_lastDrawMs;
     unsigned long m_startupUntilMs;
+    float m_smoothCpu;
+    float m_smoothRam;
 };
 
 extern DeskDisplay deskDisplay;

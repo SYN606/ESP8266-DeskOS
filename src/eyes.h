@@ -42,13 +42,18 @@ private:
     static constexpr int8_t CORNER_RADIUS = 10;
     static constexpr int8_t EYE_SPACING = 18;
 
-    // Dynamic animation parameters
+    // Spring physics & positions
     float m_leftHeight;
     float m_rightHeight;
     float m_offsetX;
     float m_offsetY;
     float m_targetOffsetX;
     float m_targetOffsetY;
+    float m_velX;
+    float m_velY;
+
+    // Idle organic breathing micro-drift
+    float m_breathOffset;
 
     // Blinking state machine
     bool m_isBlinking;
@@ -59,11 +64,11 @@ private:
     // Gaze wander state machine
     unsigned long m_lastGazeMs;
     unsigned long m_nextGazeIntervalMs;
-
     unsigned long m_lastFrameMs;
 
     void updateBlink(unsigned long now);
     void updateGaze(unsigned long now);
+    void drawHighlights(U8G2& u8g2, int16_t xL, int16_t yL, int16_t xR, int16_t yR, float hL, float hR);
 };
 
 extern RobotEyes robotEyes;

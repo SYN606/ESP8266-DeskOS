@@ -10,7 +10,9 @@ DeskDisplay::DeskDisplay()
       m_mode(DisplayMode::STARTUP),
       m_brightness(255),
       m_lastDrawMs(0),
-      m_startupUntilMs(0) {
+      m_startupUntilMs(0),
+      m_smoothCpu(0.0f),
+      m_smoothRam(0.0f) {
     strncpy(m_msgLine1, "Hello from", sizeof(m_msgLine1));
     strncpy(m_msgLine2, "ESP32 DeskOS!", sizeof(m_msgLine2));
 }
@@ -170,27 +172,31 @@ void DeskDisplay::drawPCStats(const TelemetryData& stats) {
         return;
     }
 
+    // Smooth gauge interpolation (lerp)
+    m_smoothCpu += (stats.cpuPercent - m_smoothCpu) * 0.25f;
+    m_smoothRam += (stats.ramPercent - m_smoothRam) * 0.25f;
+
     // CPU Bar (Y: 16 - 28)
     m_u8g2.setFont(u8g2_font_6x10_tr);
     m_u8g2.drawStr(2, 23, "CPU");
     char cpuBuf[8];
-    snprintf(cpuBuf, sizeof(cpuBuf), "%d%%", (int)stats.cpuPercent);
+    snprintf(cpuBuf, sizeof(cpuBuf), "%d%%", (int)roundf(m_smoothCpu));
     m_u8g2.drawStr(102, 23, cpuBuf);
 
     // CPU progress bar outline (x=26, y=16, w=72, h=8)
     m_u8g2.drawFrame(26, 16, 72, 8);
-    int cpuFill = (int)(constrain(stats.cpuPercent, 0.0f, 100.0f) * 68 / 100.0f);
+    int cpuFill = (int)(constrain(m_smoothCpu, 0.0f, 100.0f) * 68 / 100.0f);
     if (cpuFill > 0) m_u8g2.drawBox(28, 18, cpuFill, 4);
 
     // RAM Bar (Y: 32 - 44)
     m_u8g2.drawStr(2, 39, "RAM");
     char ramBuf[8];
-    snprintf(ramBuf, sizeof(ramBuf), "%d%%", (int)stats.ramPercent);
+    snprintf(ramBuf, sizeof(ramBuf), "%d%%", (int)roundf(m_smoothRam));
     m_u8g2.drawStr(102, 39, ramBuf);
 
     // RAM progress bar outline (x=26, y=32, w=72, h=8)
     m_u8g2.drawFrame(26, 32, 72, 8);
-    int ramFill = (int)(constrain(stats.ramPercent, 0.0f, 100.0f) * 68 / 100.0f);
+    int ramFill = (int)(constrain(m_smoothRam, 0.0f, 100.0f) * 68 / 100.0f);
     if (ramFill > 0) m_u8g2.drawBox(28, 34, ramFill, 4);
 
     // Bottom Info Bar (Y: 48 - 64)
@@ -270,8 +276,8 @@ void DeskDisplay::update() {
         }
     }
 
-    // Refresh rate control
-    uint16_t frameInterval = (m_mode == DisplayMode::ROBOT_EYES) ? 30 : 250;
+    // Refresh rate control (60 FPS for eyes, 30 FPS for smooth PC stats)
+    uint16_t frameInterval = (m_mode == DisplayMode::ROBOT_EYES) ? 16 : (m_mode == DisplayMode::PC_STATS ? 33 : 150);
     if (now - m_lastDrawMs < frameInterval) {
         return;
     }

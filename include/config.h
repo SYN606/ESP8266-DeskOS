@@ -12,8 +12,8 @@
 // Serial console speed
 constexpr unsigned long SERIAL_BAUD = 115200;
 
-// I2C bus clock speed in Hz (standard fast mode: 400kHz, standard: 100kHz)
-constexpr uint32_t I2C_CLOCK_SPEED = 400000;
+// I2C bus clock speed in Hz (overclocked to 800kHz for 60+ FPS fluid animations)
+constexpr uint32_t I2C_CLOCK_SPEED = 800000;
 
 // Display controller selection:
 // 1 = SH1106 (common for 1.3" 128x64 OLEDs)
