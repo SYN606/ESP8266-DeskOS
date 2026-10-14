@@ -344,6 +344,12 @@ void DeskNetwork::setupServerRoutes() {
         globalTelemetry.netKbOut = doc["net_out"] | 0.0f;
         globalTelemetry.hasData = true;
         globalTelemetry.lastReceivedMs = millis();
+        bool autoShow = doc["auto_show"].is<bool>() ? doc["auto_show"].as<bool>() : true;
+        if (autoShow) {
+            if (deskDisplay.getMode() != DisplayMode::MUSIC_PLAYER || !globalMedia.isPlaying) {
+                deskDisplay.setMode(DisplayMode::PC_STATS);
+            }
+        }
         m_server.send(200, "application/json", "{\"status\":\"ok\"}");
     });
 
