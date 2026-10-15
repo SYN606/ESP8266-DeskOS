@@ -213,10 +213,10 @@ if ($Background -or $Restart) {
             Write-Host "[INFO] DeskOS Agent is ALREADY running in background (PID: $($existing.Id))." -ForegroundColor Yellow
             Write-Host ""
             Write-Host "Commands:" -ForegroundColor Gray
-            Write-Host "  View Status : .\scripts\status.ps1"
-            Write-Host "  Stream Logs : .\scripts\logs.ps1"
+            Write-Host "  View Status : .\scripts\agent.ps1 -Status   (or DeskOS.bat option 3)"
+            Write-Host "  Stream Logs : .\scripts\agent.ps1 -Logs     (or DeskOS.bat option 5)"
             Write-Host "  Restart     : .\scripts\agent.ps1 -Restart"
-            Write-Host "  Stop Agent  : .\scripts\stop-background.ps1"
+            Write-Host "  Stop Agent  : .\scripts\agent.ps1 -Stop     (or DeskOS.bat option 4)"
             Write-Host "==========================================" -ForegroundColor Cyan
             exit 0
         }
@@ -248,9 +248,9 @@ if ($Background -or $Restart) {
         Write-Host "[SUCCESS] Agent running in background (PID: $($actualProc.Id))!" -ForegroundColor Green
         Write-Host ""
         Write-Host "Commands:" -ForegroundColor Yellow
-        Write-Host "  View Status : .\scripts\status.ps1"
-        Write-Host "  Stream Logs : .\scripts\logs.ps1"
-        Write-Host "  Stop Agent  : .\scripts\stop-background.ps1"
+        Write-Host "  View Status : .\scripts\agent.ps1 -Status   (or DeskOS.bat option 3)"
+        Write-Host "  Stream Logs : .\scripts\agent.ps1 -Logs     (or DeskOS.bat option 5)"
+        Write-Host "  Stop Agent  : .\scripts\agent.ps1 -Stop     (or DeskOS.bat option 4)"
         Write-Host "==========================================" -ForegroundColor Cyan
     } else {
         Write-Host "[ERROR] Agent process failed to start." -ForegroundColor Red

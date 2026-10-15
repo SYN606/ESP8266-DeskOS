@@ -92,11 +92,12 @@ ESP8266-DeskOS/
 │   ├── hardware.md             # OLED wiring, pinout & controller details
 │   └── development.md          # Step-by-step Windows development workflow
 │
+├── DeskOS.bat                  # Unified 1-click launcher (Background, Status, Stop, Logs)
 └── scripts/
     ├── build.ps1               # Compile firmware without flashing
     ├── upload.ps1              # Safe upload script with auto-port detection
     ├── monitor.ps1             # 115200 baud serial monitor
-    └── agent.ps1               # Starts the PC companion streaming bridge
+    └── agent.ps1               # Companion bridge manager (-Background, -Status, -Stop, -Logs)
 ```
 
 ---
@@ -168,44 +169,35 @@ Connect your board via USB and run:
 
 The PC companion streams live CPU/RAM/Network stats, local time, and active media playback (Spotify, YouTube, VLC) directly to your DeskOS OLED.
 
-#### Option A: Quick Double-Click (Batch Launchers)
-In the root directory, simply double-click:
-- **`Start-Background.bat`** — Starts the agent silently in the background (no open terminal window).
-- **`Status.bat`** — Displays process status, PID, memory consumption, and recent logs.
-- **`View-Logs.bat`** — Opens a live streaming view of agent activity.
-- **`Stop-Background.bat`** — Cleanly shuts down the background agent.
+#### Option A: 1-Click Interactive Menu (Recommended)
+Simply double-click **`DeskOS.bat`** in the repository root for an instant interactive menu:
+- `[1] Start in Background (Silent)` — Starts the agent silently without an open window.
+- `[2] Start in Foreground (Clean Banner)` — Runs with a concise 5-line startup banner.
+- `[3] Check Status & Health` — Shows PID, memory usage, and recent activity.
+- `[4] Stop Background Agent` — Cleanly terminates the background process.
+- `[5] View Live Logs` — Streams real-time telemetry output.
 
-#### Option B: PowerShell Scripts
+#### Option B: PowerShell CLI (`scripts/agent.ps1`)
+All functions are directly available from PowerShell:
 ```powershell
 # Start silently in the background
-.\scripts\start-background.ps1
+.\scripts\agent.ps1 -Background
 
-# Check status & health
-.\scripts\status.ps1
+# Check status & memory usage
+.\scripts\agent.ps1 -Status
 
-# Follow live output logs
-.\scripts\logs.ps1
+# Stream real-time logs (Ctrl+C to stop viewing)
+.\scripts\agent.ps1 -Logs
 
 # Stop the background process
-.\scripts\stop-background.ps1
+.\scripts\agent.ps1 -Stop
+
+# Or run in foreground with clean single banner
+.\scripts\agent.ps1
 ```
 
-#### Option C: Run in Foreground (Clean Single Banner)
-```powershell
-.\scripts\agent.ps1
-# or: uv run python pc-agent/agent.py
-```
 > [!TIP]
 > The foreground agent displays a clean 5-line startup banner without spamming console output every second. To view real-time per-second telemetry logs, pass `-ShowStream` (or `--verbose` / `-v`).
-
-#### Option D: Automatic Start on Windows Login
-```powershell
-# Install auto-start at Windows logon
-.\scripts\install-startup.ps1
-
-# Remove auto-start
-.\scripts\uninstall-startup.ps1
-```
 
 ---
 
