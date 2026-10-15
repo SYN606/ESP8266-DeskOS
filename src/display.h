@@ -66,7 +66,11 @@ private:
     float m_smoothCpu;
     float m_smoothRam;
     int16_t m_musicScrollX;
+    int16_t m_musicScrollPause;
     uint8_t m_eqPhase;
+    float m_eqBands[8];
+    float m_eqPeaks[8];
+    float m_vinylAngle;
 };
 
 extern DeskDisplay deskDisplay;

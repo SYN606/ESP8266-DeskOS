@@ -17,7 +17,13 @@ DeskDisplay::DeskDisplay()
       m_smoothCpu(0.0f),
       m_smoothRam(0.0f),
       m_musicScrollX(0),
-      m_eqPhase(0) {
+      m_musicScrollPause(0),
+      m_eqPhase(0),
+      m_vinylAngle(0.0f) {
+    for (int i = 0; i < 8; i++) {
+        m_eqBands[i] = 1.0f;
+        m_eqPeaks[i] = 1.0f;
+    }
 }
 
 bool DeskDisplay::begin() {
@@ -223,66 +229,178 @@ void DeskDisplay::drawPCStats(const TelemetryData& stats) {
 void DeskDisplay::drawMusicPlayer(const MediaData& media) {
     m_u8g2.clearBuffer();
 
-    // Top Header with Equalizer
+    bool hasTrack = (strlen(media.title) > 0);
+
+    // 1. Sleek Hi-Fi Header (Y: 0 to 12)
     m_u8g2.setFont(u8g2_font_5x8_tr);
-    if (media.isPlaying) {
-        m_u8g2.drawStr(2, 8, "NOW PLAYING");
+    if (!hasTrack) {
+        m_u8g2.drawStr(2, 9, "DESKOS HI-FI AUDIO");
+    } else if (media.isPlaying) {
+        m_u8g2.drawStr(2, 9, "NOW PLAYING");
     } else {
-        m_u8g2.drawStr(2, 8, "MUSIC PAUSED");
+        m_u8g2.drawStr(2, 9, "PAUSED");
     }
 
-    // Animated 5-bar equalizer on right side of header
+    // 8-Band Dynamic Spectrum Visualizer with Falling Peak Meter Caps (Y: 1 to 10, X: 84 to 126)
     m_eqPhase++;
-    for (int b = 0; b < 5; b++) {
-        int h = media.isPlaying ? (2 + (int)((sin((m_eqPhase * 0.3) + b) + 1.0) * 3.0)) : 1;
-        m_u8g2.drawVLine(114 + (b * 3), 9 - h, h);
-    }
-    m_u8g2.drawHLine(0, 11, 128);
+    constexpr uint8_t NUM_BANDS = 8;
+    constexpr int16_t EQ_X = 84;
+    constexpr int16_t EQ_MAX_H = 8;
 
-    if (strlen(media.title) == 0) {
+    for (uint8_t i = 0; i < NUM_BANDS; i++) {
+        float targetH = 1.0f;
+        if (media.isPlaying && hasTrack) {
+            float wave1 = sinf((m_eqPhase * 0.22f) + (i * 0.85f));
+            float wave2 = cosf((m_eqPhase * 0.14f) + (i * 1.30f));
+            float energy = ((wave1 + wave2) * 0.5f) + 0.5f;
+            if (i < 3) energy = powf(energy, 0.75f); // Richer bass response
+            targetH = 2.0f + (energy * (EQ_MAX_H - 2.0f));
+        }
+
+        m_eqBands[i] += (targetH - m_eqBands[i]) * 0.35f;
+
+        if (m_eqBands[i] >= m_eqPeaks[i]) {
+            m_eqPeaks[i] = m_eqBands[i];
+        } else {
+            m_eqPeaks[i] = max(1.0f, m_eqPeaks[i] - 0.32f);
+        }
+
+        int16_t bx = EQ_X + (i * 5);
+        int16_t bh = (int16_t)roundf(m_eqBands[i]);
+        int16_t ph = (int16_t)roundf(m_eqPeaks[i]);
+
+        m_u8g2.drawBox(bx, 10 - bh, 3, bh);
+        if (ph > bh && ph <= EQ_MAX_H) {
+            m_u8g2.drawHLine(bx, 10 - ph, 3);
+        }
+    }
+    m_u8g2.drawHLine(0, 12, 128);
+
+    if (!hasTrack) {
+        // High-Tech Cassette Standby Graphic
+        m_u8g2.drawRFrame(40, 20, 48, 28, 3);
+        m_u8g2.drawRFrame(44, 24, 40, 14, 2);
+        // Spools
+        m_u8g2.drawCircle(53, 31, 4);
+        m_u8g2.drawCircle(75, 31, 4);
+        m_u8g2.drawDisc(53, 31, 1);
+        m_u8g2.drawDisc(75, 31, 1);
+        m_u8g2.drawLine(57, 31, 71, 31);
+        m_u8g2.drawLine(48, 48, 80, 48);
+
         m_u8g2.setFont(u8g2_font_6x10_tr);
-        m_u8g2.drawStr(14, 30, "NO MUSIC PLAYING");
-        m_u8g2.setFont(u8g2_font_5x8_tr);
-        m_u8g2.drawStr(10, 46, "Play Spotify/YouTube/VLC");
+        const char* noMusicStr = "NO MUSIC ACTIVE";
+        m_u8g2.drawStr((128 - m_u8g2.getStrWidth(noMusicStr)) / 2, 58, noMusicStr);
         m_u8g2.sendBuffer();
         return;
     }
 
-    // Vinyl spinning disc graphic on left (circle at x=14, y=36, radius=12)
-    m_u8g2.drawCircle(14, 36, 12);
-    m_u8g2.drawCircle(14, 36, 5);
-    m_u8g2.drawDisc(14, 36, 2);
+    // 2. Vinyl Turntable Art (Left: cx=17, cy=38, r=14)
+    constexpr int16_t VCX = 17;
+    constexpr int16_t VCY = 38;
+
     if (media.isPlaying) {
-        // Rotating needle tick
-        float angle = (m_eqPhase * 0.15f);
-        int8_t nx = (int8_t)(cosf(angle) * 8);
-        int8_t ny = (int8_t)(sinf(angle) * 8);
-        m_u8g2.drawLine(14, 36, 14 + nx, 36 + ny);
+        m_vinylAngle += 0.22f;
+        if (m_vinylAngle > 6.28318f) m_vinylAngle -= 6.28318f;
     }
 
-    // Scrolling or centered Track Title (Y: 30)
-    m_u8g2.setFont(u8g2_font_7x14B_tr);
-    int16_t titleWidth = m_u8g2.getStrWidth(media.title);
-    constexpr int16_t TEXT_X = 32;
-    constexpr int16_t TEXT_MAX_W = 92;
+    // Outer vinyl edge
+    m_u8g2.drawCircle(VCX, VCY, 14);
+    // Sound groove tracks
+    m_u8g2.drawCircle(VCX, VCY, 10);
+    m_u8g2.drawCircle(VCX, VCY, 7);
 
-    if (titleWidth > TEXT_MAX_W) {
-        m_musicScrollX += 2;
-        if (m_musicScrollX > titleWidth + 20) m_musicScrollX = -TEXT_MAX_W;
-        m_u8g2.setClipWindow(TEXT_X, 14, 128, 38);
-        m_u8g2.drawStr(TEXT_X - m_musicScrollX, 30, media.title);
+    // Dynamic rotating light reflection arcs on the vinyl grooves
+    float a1 = m_vinylAngle;
+    float a2 = m_vinylAngle + 3.14159f;
+    m_u8g2.drawPixel(VCX + (int16_t)(cosf(a1) * 11), VCY + (int16_t)(sinf(a1) * 11));
+    m_u8g2.drawPixel(VCX + (int16_t)(cosf(a1 + 0.3f) * 9), VCY + (int16_t)(sinf(a1 + 0.3f) * 9));
+    m_u8g2.drawPixel(VCX + (int16_t)(cosf(a2) * 11), VCY + (int16_t)(sinf(a2) * 11));
+    m_u8g2.drawPixel(VCX + (int16_t)(cosf(a2 + 0.3f) * 9), VCY + (int16_t)(sinf(a2 + 0.3f) * 9));
+
+    // Center record label
+    m_u8g2.drawDisc(VCX, VCY, 4);
+    // Spindle hole
+    m_u8g2.setDrawColor(0);
+    m_u8g2.drawPixel(VCX, VCY);
+    m_u8g2.setDrawColor(1);
+
+    // Turntable Tonearm / Stylus
+    constexpr int16_t ARM_PIVOT_X = 32;
+    constexpr int16_t ARM_PIVOT_Y = 20;
+    m_u8g2.drawDisc(ARM_PIVOT_X, ARM_PIVOT_Y, 2);
+
+    if (media.isPlaying) {
+        // Arm resting on the groove
+        m_u8g2.drawLine(ARM_PIVOT_X, ARM_PIVOT_Y, 23, 31);
+        m_u8g2.drawLine(23, 31, 20, 35);
+        m_u8g2.drawBox(19, 34, 3, 2);
+    } else {
+        // Arm lifted away to rest post
+        m_u8g2.drawLine(ARM_PIVOT_X, ARM_PIVOT_Y, 33, 26);
+        m_u8g2.drawBox(32, 26, 3, 2);
+        // Pause icon overlay on vinyl
+        m_u8g2.setDrawColor(0);
+        m_u8g2.drawBox(VCX - 4, VCY - 5, 8, 10);
+        m_u8g2.setDrawColor(1);
+        m_u8g2.drawBox(VCX - 3, VCY - 4, 2, 8);
+        m_u8g2.drawBox(VCX + 1, VCY - 4, 2, 8);
+    }
+
+    // 3. Track Information (Right Column: X: 37 to 127)
+    constexpr int16_t TEXT_X = 37;
+    constexpr int16_t TEXT_W = 90;
+
+    // Track Title (Y: 28)
+    m_u8g2.setFont(u8g2_font_7x14B_tr);
+    int16_t titleW = m_u8g2.getStrWidth(media.title);
+
+    if (titleW > TEXT_W) {
+        if (m_musicScrollPause > 0) {
+            m_musicScrollPause--;
+        } else {
+            m_musicScrollX += 1; // Smooth pixel-by-pixel scroll
+            if (m_musicScrollX > titleW + 24) {
+                m_musicScrollX = 0;
+                m_musicScrollPause = 30; // Pause at beginning
+            }
+        }
+        m_u8g2.setClipWindow(TEXT_X, 14, 128, 32);
+        m_u8g2.drawStr(TEXT_X - m_musicScrollX, 28, media.title);
         m_u8g2.setMaxClipWindow();
     } else {
-        m_u8g2.drawStr(TEXT_X, 30, media.title);
+        m_musicScrollX = 0;
+        m_u8g2.drawStr(TEXT_X, 28, media.title);
     }
 
-    // Artist Name (Y: 45)
+    // Artist Name (Y: 42)
     m_u8g2.setFont(u8g2_font_6x10_tr);
-    m_u8g2.drawStr(TEXT_X, 45, media.artist);
+    m_u8g2.setClipWindow(TEXT_X, 32, 128, 46);
+    m_u8g2.drawStr(TEXT_X, 42, media.artist);
+    m_u8g2.setMaxClipWindow();
 
-    // Bottom decorative wave / progress bar
-    m_u8g2.drawHLine(TEXT_X, 54, 90);
-    m_u8g2.drawBox(TEXT_X, 53, (m_eqPhase % 90), 3);
+    // 4. Progress / Audio Waveform Scrub Bar (Y: 49 to 62)
+    m_u8g2.drawHLine(TEXT_X, 51, TEXT_W);
+
+    if (media.isPlaying) {
+        int16_t scrubPos = (int16_t)((m_eqPhase * 0.8f)) % (TEXT_W - 4);
+        m_u8g2.drawBox(TEXT_X, 50, scrubPos, 3);
+        m_u8g2.drawDisc(TEXT_X + scrubPos, 51, 2);
+
+        // Animated Mini Audio Waveform at bottom (Y: 56 - 63)
+        for (int16_t wx = 0; wx < TEXT_W; wx += 3) {
+            float wave = sinf((m_eqPhase * 0.18f) + (wx * 0.12f));
+            int16_t wh = (int16_t)((wave + 1.0f) * 2.5f);
+            if (wh > 0) {
+                m_u8g2.drawVLine(TEXT_X + wx, 63 - wh, wh);
+            }
+        }
+    } else {
+        m_u8g2.drawBox(TEXT_X, 50, TEXT_W / 3, 3);
+        m_u8g2.drawDisc(TEXT_X + (TEXT_W / 3), 51, 2);
+        m_u8g2.setFont(u8g2_font_4x6_tr);
+        m_u8g2.drawStr(TEXT_X + 2, 61, "PAUSED - PRESS PLAY ON PC");
+    }
 
     m_u8g2.sendBuffer();
 }

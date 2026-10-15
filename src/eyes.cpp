@@ -58,7 +58,12 @@ RobotEyes::RobotEyes()
       m_lastGazeMs(0),
       m_nextGazeIntervalMs(2400),
       m_lastFrameMs(0),
-      m_scanPhase(0.0f),
+      m_squashX(0.0f),
+      m_targetSquashX(0.0f),
+      m_pupilDilation(1.0f),
+      m_targetPupilDilation(1.0f),
+      m_browCuriosityTwitch(0.0f),
+      m_nextTwitchMs(4500),
       m_heartPulsePhase(0.0f) {
 }
 
@@ -189,43 +194,66 @@ void RobotEyes::updateBlink(unsigned long now) {
 
 void RobotEyes::updateGaze(unsigned long now) {
     if (now - m_lastGazeMs >= m_nextGazeIntervalMs) {
-        // Natural multi-directional gaze wander
+        // Natural multi-directional gaze wander with biological fixation timings
         m_lastGazeMs = now;
-        m_nextGazeIntervalMs = random(1600, 3800);
+        m_nextGazeIntervalMs = random(1800, 4200);
 
         int r = random(0, 100);
-        if (r < 34) {
+        if (r < 32) {
             // 1. Direct eye contact (straight at user)
             m_targetPupilOffsetX = 0.0f;
             m_targetPupilOffsetY = 0.0f;
             m_targetOffsetX = 0.0f;
             m_targetOffsetY = 0.0f;
-        } else if (r < 56) {
+            m_targetSquashX = 0.0f;
+            m_targetPupilDilation = 1.0f;
+        } else if (r < 52) {
             // 2. Look DOWN at desk/table (natural reading/companion angle)
             m_targetPupilOffsetY = (float)random(5, 8);
             m_targetPupilOffsetX = (float)random(-4, 5);
             m_targetOffsetX = m_targetPupilOffsetX * 0.35f;
             m_targetOffsetY = 3.5f;
+            m_targetSquashX = m_targetPupilOffsetX * 0.2f;
+            m_targetPupilDilation = 0.95f; // Focusing constriction
         } else if (r < 72) {
-            // 3. Glance LEFT
+            // 3. Glance LEFT (curious side glance)
             m_targetPupilOffsetX = (float)random(-10, -7);
-            m_targetPupilOffsetY = (float)random(-2, 4);
+            m_targetPupilOffsetY = (float)random(-3, 4);
             m_targetOffsetX = -4.5f;
             m_targetOffsetY = m_targetPupilOffsetY * 0.4f;
+            m_targetSquashX = -2.4f; // Left eye expands, right narrows (3D perspective)
+            m_targetPupilDilation = 1.15f; // Alert dilation
         } else if (r < 88) {
             // 4. Glance RIGHT
             m_targetPupilOffsetX = (float)random(7, 11);
-            m_targetPupilOffsetY = (float)random(-2, 4);
+            m_targetPupilOffsetY = (float)random(-3, 4);
             m_targetOffsetX = 4.5f;
             m_targetOffsetY = m_targetPupilOffsetY * 0.4f;
+            m_targetSquashX = 2.4f; // Right eye expands, left narrows
+            m_targetPupilDilation = 1.15f;
         } else {
-            // 5. Look slightly UP at user
-            m_targetPupilOffsetX = (float)random(-4, 5);
-            m_targetPupilOffsetY = (float)random(-6, -4);
+            // 5. Look UP / Pondering
+            m_targetPupilOffsetX = (float)random(-5, 6);
+            m_targetPupilOffsetY = (float)random(-7, -4);
             m_targetOffsetX = m_targetPupilOffsetX * 0.35f;
-            m_targetOffsetY = -3.0f;
+            m_targetOffsetY = -3.5f;
+            m_targetSquashX = 0.0f;
+            m_targetPupilDilation = 1.20f;
         }
     }
+
+    // Occasional subtle brow curiosity micro-twitch
+    if (now >= m_nextTwitchMs) {
+        m_nextTwitchMs = now + random(4500, 9500);
+        if (m_mood == EyeMood::NEUTRAL || m_mood == EyeMood::SKEPTICAL) {
+            m_browCuriosityTwitch = (random(0, 100) < 50) ? -2.0f : 1.6f;
+        }
+    }
+    m_browCuriosityTwitch *= 0.88f;
+
+    // Smooth organic perspective squash and pupil dilation
+    m_squashX += (m_targetSquashX - m_squashX) * 0.22f;
+    m_pupilDilation += (m_targetPupilDilation - m_pupilDilation) * 0.16f;
 
     // Spring physics for smooth pupil saccades
     constexpr float PUPIL_K = 0.36f;
@@ -447,19 +475,23 @@ void RobotEyes::update() {
 }
 
 void RobotEyes::drawCurvedEyebrow(U8G2& u8g2, int16_t xIn, int16_t yIn, int16_t xMid, int16_t yMid, int16_t xOut, int16_t yOut, bool isLeft) {
-    // 1. Inner to Mid segment (Tapered 4px to 3px)
+    // Organic curved tapered brow with anti-aliased look on OLED
+    // Segment 1: Inner root to Mid arch (4px thick tapering to 3px)
     u8g2.drawLine(xIn, yIn,     xMid, yMid);
     u8g2.drawLine(xIn, yIn + 1, xMid, yMid + 1);
     u8g2.drawLine(xIn, yIn + 2, xMid, yMid + 2);
     u8g2.drawLine(xIn, yIn + 3, xMid, yMid + 2);
 
-    // 2. Mid to Outer segment (Tapered 3px to 2px)
+    // Inner brow root soft endcap
+    u8g2.drawDisc(xIn, yIn + 1, 1);
+    u8g2.drawPixel(xIn, yIn + 3);
+
+    // Segment 2: Mid arch to Outer temple tail (3px tapering down to 1px)
     u8g2.drawLine(xMid, yMid,     xOut, yOut);
-    u8g2.drawLine(xMid, yMid + 1, xOut, yOut + 1);
+    u8g2.drawLine(xMid, yMid + 1, xOut, yOut);
     u8g2.drawLine(xMid, yMid + 2, xOut, yOut + 1);
 
-    // 3. Rounded endcaps
-    u8g2.drawDisc(xIn, yIn + 1, 1);
+    // Arch peak soft join
     u8g2.drawDisc(xMid, yMid + 1, 1);
 }
 
@@ -492,40 +524,54 @@ void RobotEyes::drawWinkEye(U8G2& u8g2, int16_t cx, int16_t cy, float w) {
 
 void RobotEyes::drawSingleEye(U8G2& u8g2, int16_t x, int16_t y, float w, float h, float pW, float pH, float pOffX, float pOffY, bool isLeft) {
     int16_t rad = min((int16_t)CORNER_RADIUS, (int16_t)(h / 2));
-    if (rad < 1) rad = 1;
+    if (rad < 2) rad = 2;
 
-    // 1. Draw outer white eye capsule
+    // 1. Draw outer white eye capsule (sclera)
     u8g2.setDrawColor(1);
     u8g2.drawRBox(x, y, (int16_t)w, (int16_t)h, rad);
 
-    // If blinking or eye slit, don't draw inner pupil
-    if (h < 14.0f) return;
+    // If eye is closed / slit, don't draw inner pupil
+    if (h < 10.0f) return;
 
-    // 2. Draw dark active pupil inside
+    // 2. Active pupil dynamics with 3D cornea depth
     int16_t centerX = x + (int16_t)(w / 2);
     int16_t centerY = y + (int16_t)(h / 2);
 
+    float effectivePW = pW * m_pupilDilation;
+    float effectivePH = pH * m_pupilDilation;
+
     // Clamp pupil offset so it stays naturally inside the white eye boundaries
-    float maxPoffX = (w / 2.0f) - (pW / 2.0f) - 2.0f;
-    float maxPoffY = (h / 2.0f) - (pH / 2.0f) - 2.0f;
+    float maxPoffX = (w / 2.0f) - (effectivePW / 2.0f) - 2.5f;
+    float maxPoffY = (h / 2.0f) - (effectivePH / 2.0f) - 2.0f;
     if (maxPoffX < 0) maxPoffX = 0;
     if (maxPoffY < 0) maxPoffY = 0;
 
-    int16_t pX = centerX - (int16_t)(pW / 2) + (int16_t)constrain(pOffX, -maxPoffX, maxPoffX);
-    int16_t pY = centerY - (int16_t)(pH / 2) + (int16_t)constrain(pOffY, -maxPoffY, maxPoffY);
+    int16_t pX = centerX - (int16_t)(effectivePW / 2) + (int16_t)constrain(pOffX, -maxPoffX, maxPoffX);
+    int16_t pY = centerY - (int16_t)(effectivePH / 2) + (int16_t)constrain(pOffY, -maxPoffY, maxPoffY);
 
-    int16_t pRad = min((int16_t)4, (int16_t)(pH / 3));
-    if (pRad < 1) pRad = 1;
+    int16_t pRad = min((int16_t)5, (int16_t)(effectivePH / 3));
+    if (pRad < 2) pRad = 2;
 
+    // Draw deep dark pupil capsule
     u8g2.setDrawColor(0);
-    u8g2.drawRBox(pX, pY, (int16_t)pW, (int16_t)pH, pRad);
+    u8g2.drawRBox(pX, pY, (int16_t)effectivePW, (int16_t)effectivePH, pRad);
 
-    // 3. Draw specular white glint inside dark pupil
-    if (pH >= 10.0f) {
+    // 3. 3D Cornea Specular Highlight (Catchlight)
+    // Fixed ambient light reflection creates true glossy wet cornea depth!
+    if (effectivePH >= 12.0f && effectivePW >= 10.0f) {
         u8g2.setDrawColor(1);
-        u8g2.drawDisc(pX + 3, pY + 3, 1);
-        if (pW >= 14.0f) {
-            u8g2.drawPixel(pX + 5, pY + 5);
+
+        // Primary catchlight glint (2x2 disc)
+        int16_t glintX = pX + (int16_t)(effectivePW * 0.65f);
+        int16_t glintY = pY + 3;
+        if (glintX > pX + (int16_t)effectivePW - 3) glintX = pX + (int16_t)effectivePW - 3;
+        u8g2.drawDisc(glintX, glintY, 1);
+
+        // Secondary subtle bounce reflection (1px) in opposite lower quadrant
+        int16_t secGlintX = pX + 3;
+        int16_t secGlintY = pY + (int16_t)effectivePH - 4;
+        if (secGlintY > pY + 4 && secGlintX < glintX - 2) {
+            u8g2.drawPixel(secGlintX, secGlintY);
         }
     }
 
@@ -535,61 +581,69 @@ void RobotEyes::drawSingleEye(U8G2& u8g2, int16_t x, int16_t y, float w, float h
 void RobotEyes::drawCatEyes(U8G2& u8g2, int16_t xL, int16_t yL, int16_t xR, int16_t yR, float pOffX, float pOffY, float blinkProgress) {
     u8g2.setDrawColor(1);
 
-    // 1. Pointed Cat Ears (Triangle with inner ear detail)
+    // Subtle ear twitch with glance
+    int16_t earTwitchL = (pOffX < -3.0f) ? -1 : 0;
+    int16_t earTwitchR = (pOffX > 3.0f) ? -1 : 0;
+
+    // 1. Pointed Cat Ears (3D triangle with inner ear cavity)
     // Left Ear
-    u8g2.drawTriangle(xL + 1, yL + 1, xL + 18, yL + 1, xL + 6, yL - 13);
+    u8g2.drawTriangle(xL + 1, yL + 1, xL + 18, yL + 1, xL + 5, yL - 14 + earTwitchL);
     u8g2.setDrawColor(0);
-    u8g2.drawTriangle(xL + 4, yL + 1, xL + 15, yL + 1, xL + 8, yL - 9);
+    u8g2.drawTriangle(xL + 4, yL + 1, xL + 15, yL + 1, xL + 7, yL - 10 + earTwitchL);
     u8g2.setDrawColor(1);
 
     // Right Ear
-    u8g2.drawTriangle(xR + 15, yR + 1, xR + 32, yR + 1, xR + 27, yR - 13);
+    u8g2.drawTriangle(xR + 15, yR + 1, xR + 32, yR + 1, xR + 28, yR - 14 + earTwitchR);
     u8g2.setDrawColor(0);
-    u8g2.drawTriangle(xR + 18, yR + 1, xR + 29, yR + 1, xR + 25, yR - 9);
+    u8g2.drawTriangle(xR + 18, yR + 1, xR + 29, yR + 1, xR + 26, yR - 10 + earTwitchR);
     u8g2.setDrawColor(1);
 
-    // 2. Feline Eye Capsules (w=34, h up to 34)
+    // 2. Feline Eye Sclera Capsules
     int16_t h = (int16_t)(34.0f * blinkProgress);
     if (h < 2) h = 2;
-    int16_t rad = min((int16_t)8, (int16_t)(h / 2));
-    if (rad < 1) rad = 1;
+    int16_t rad = min((int16_t)9, (int16_t)(h / 2));
+    if (rad < 2) rad = 2;
 
     u8g2.drawRBox(xL, yL, 34, h, rad);
     u8g2.drawRBox(xR, yR, 34, h, rad);
 
-    // 3. Vertical Elliptical Slit Pupils with Specular Glint
-    if (h >= 10) {
+    // 3. Feline Slit Pupils with Dynamic Dilation
+    if (h >= 8) {
         u8g2.setDrawColor(0);
-        int16_t cxL = xL + 17 + (int16_t)constrain(pOffX, -9.0f, 9.0f);
+        int16_t cxL = xL + 17 + (int16_t)constrain(pOffX, -8.0f, 8.0f);
         int16_t cyL = yL + (h / 2) + (int16_t)constrain(pOffY, -5.0f, 5.0f);
-        int16_t cxR = xR + 17 + (int16_t)constrain(pOffX, -9.0f, 9.0f);
+        int16_t cxR = xR + 17 + (int16_t)constrain(pOffX, -8.0f, 8.0f);
         int16_t cyR = yR + (h / 2) + (int16_t)constrain(pOffY, -5.0f, 5.0f);
 
         int16_t slitRy = (int16_t)((h - 6) / 2);
         if (slitRy < 2) slitRy = 2;
-        u8g2.drawFilledEllipse(cxL, cyL, 2, slitRy);
-        u8g2.drawFilledEllipse(cxR, cyR, 2, slitRy);
+        int16_t slitRx = (m_pupilDilation > 1.08f) ? 3 : 2;
+
+        u8g2.drawFilledEllipse(cxL, cyL, slitRx, slitRy);
+        u8g2.drawFilledEllipse(cxR, cyR, slitRx, slitRy);
 
         // Specular glint
         u8g2.setDrawColor(1);
-        u8g2.drawPixel(cxL + 3, cyL - 3);
-        u8g2.drawPixel(cxR + 3, cyR - 3);
+        u8g2.drawPixel(cxL + slitRx + 1, cyL - 3);
+        u8g2.drawPixel(cxR + slitRx + 1, cyR - 3);
     }
 
-    // 4. Cute Cat Nose & Whisker Muzzle
+    // 4. Cat Muzzle, Inverted Nose, and Whiskers with Breathing Motion
     u8g2.setDrawColor(1);
-    // Nose triangle (inverted)
-    u8g2.drawTriangle(61, 46, 67, 46, 64, 49);
-    // Philtrum and mouth curves
-    u8g2.drawLine(64, 49, 64, 51);
-    u8g2.drawLine(64, 51, 60, 53);
-    u8g2.drawLine(64, 51, 68, 53);
+    int16_t noseY = 46 + (int16_t)(m_breathOffset * 0.4f);
+    // Inverted nose triangle
+    u8g2.drawTriangle(61, noseY, 67, noseY, 64, noseY + 3);
+    // Philtrum & cheerful mouth arcs
+    u8g2.drawLine(64, noseY + 3, 64, noseY + 5);
+    u8g2.drawLine(64, noseY + 5, 59, noseY + 7);
+    u8g2.drawLine(64, noseY + 5, 69, noseY + 7);
 
-    // Whiskers
-    u8g2.drawLine(xL - 2, 44, xL - 15, 41);
-    u8g2.drawLine(xL - 2, 48, xL - 15, 49);
-    u8g2.drawLine(xR + 35, 44, xR + 48, 41);
-    u8g2.drawLine(xR + 35, 48, xR + 48, 49);
+    // Whiskers with subtle sway
+    int16_t wSway = (int16_t)(sinf(millis() * 0.003f) * 1.0f);
+    u8g2.drawLine(xL - 2, 44 + wSway, xL - 15, 41);
+    u8g2.drawLine(xL - 2, 48,         xL - 16, 49 - wSway);
+    u8g2.drawLine(xR + 35, 44 - wSway, xR + 48, 41);
+    u8g2.drawLine(xR + 35, 48,         xR + 49, 49 + wSway);
 }
 
 void RobotEyes::drawOwlEyes(U8G2& u8g2, float pOffX, float pOffY, float blinkProgress) {
@@ -600,11 +654,12 @@ void RobotEyes::drawOwlEyes(U8G2& u8g2, float pOffX, float pOffY, float blinkPro
     int16_t cxR = 92;
     int16_t cyR = 33 + (int16_t)m_offsetY;
 
-    // 1. Owl Feather Tufts (Plumicorns / Ear Horns)
-    u8g2.drawTriangle(22, cyL - 19, 30, cyL - 21, 13, cyL - 31);
-    u8g2.drawTriangle(20, cyL - 19, 26, cyL - 20, 11, cyL - 29);
-    u8g2.drawTriangle(106, cyR - 19, 98, cyR - 21, 115, cyR - 31);
-    u8g2.drawTriangle(108, cyR - 19, 102, cyR - 20, 117, cyR - 29);
+    // 1. Owl Feather Horns (Plumicorns) with curiosity angle
+    int16_t hornTilt = (int16_t)(pOffX * 0.3f);
+    u8g2.drawTriangle(22, cyL - 19, 30, cyL - 21, 12 + hornTilt, cyL - 32);
+    u8g2.drawTriangle(20, cyL - 19, 26, cyL - 20, 10 + hornTilt, cyL - 30);
+    u8g2.drawTriangle(106, cyR - 19, 98, cyR - 21, 116 + hornTilt, cyR - 32);
+    u8g2.drawTriangle(108, cyR - 19, 102, cyR - 20, 118 + hornTilt, cyR - 30);
 
     // 2. Brow Ridge V connecting above the beak
     u8g2.drawLine(34, cyL - 19, 64, cyL - 9);
@@ -612,11 +667,21 @@ void RobotEyes::drawOwlEyes(U8G2& u8g2, float pOffX, float pOffY, float blinkPro
     u8g2.drawLine(94, cyR - 19, 64, cyR - 9);
     u8g2.drawLine(94, cyR - 18, 64, cyR - 8);
 
-    // 3. Large Feathery Facial Disc Rings
+    // 3. Concentric Feathery Orbital Disc Rings
     u8g2.drawCircle(cxL, cyL, 22);
     u8g2.drawCircle(cxL, cyL, 20);
     u8g2.drawCircle(cxR, cyR, 22);
     u8g2.drawCircle(cxR, cyR, 20);
+
+    // Radial feather tick marks around the rim
+    u8g2.drawPixel(cxL - 22, cyL);
+    u8g2.drawPixel(cxL + 22, cyL);
+    u8g2.drawPixel(cxL, cyL - 22);
+    u8g2.drawPixel(cxL, cyL + 22);
+    u8g2.drawPixel(cxR - 22, cyR);
+    u8g2.drawPixel(cxR + 22, cyR);
+    u8g2.drawPixel(cxR, cyR - 22);
+    u8g2.drawPixel(cxR, cyR + 22);
 
     // 4. White Sclera Disc (responds to blinking)
     int16_t radY = (int16_t)(17.0f * blinkProgress);
@@ -632,17 +697,17 @@ void RobotEyes::drawOwlEyes(U8G2& u8g2, float pOffX, float pOffY, float blinkPro
         int16_t pxR = cxR + (int16_t)constrain(pOffX * 0.65f, -6.0f, 6.0f);
         int16_t pyR = cyR + (int16_t)constrain(pOffY * 0.65f, -5.0f, 5.0f);
 
-        int16_t pRadY = min((int16_t)9, (int16_t)(radY - 2));
+        int16_t pRadY = min((int16_t)10, (int16_t)(radY - 2));
         if (pRadY < 2) pRadY = 2;
-        u8g2.drawFilledEllipse(pxL, pyL, 9, pRadY);
-        u8g2.drawFilledEllipse(pxR, pyR, 9, pRadY);
+        u8g2.drawFilledEllipse(pxL, pyL, 10, pRadY);
+        u8g2.drawFilledEllipse(pxR, pyR, 10, pRadY);
 
-        // Specular eye reflections
+        // Specular eye reflections (dual depth)
         u8g2.setDrawColor(1);
         u8g2.drawDisc(pxL + 3, pyL - 3, 2);
         u8g2.drawDisc(pxR + 3, pyR - 3, 2);
-        u8g2.drawPixel(pxL + 5, pyL);
-        u8g2.drawPixel(pxR + 5, pyR);
+        u8g2.drawPixel(pxL + 5, pyL + 1);
+        u8g2.drawPixel(pxR + 5, pyR + 1);
     }
 
     // 6. Hooked Center Owl Beak
@@ -650,6 +715,8 @@ void RobotEyes::drawOwlEyes(U8G2& u8g2, float pOffX, float pOffY, float blinkPro
     u8g2.drawTriangle(60, cyL - 7, 68, cyL - 7, 64, cyL + 9);
     u8g2.setDrawColor(0);
     u8g2.drawLine(64, cyL - 6, 64, cyL + 8);
+    u8g2.drawPixel(62, cyL - 5); // Left nostril
+    u8g2.drawPixel(66, cyL - 5); // Right nostril
     u8g2.setDrawColor(1);
 }
 
@@ -659,6 +726,12 @@ void RobotEyes::draw(U8G2& u8g2) {
 
     float totalOffsetX = m_offsetX + m_tremorX;
     float totalOffsetY = m_offsetY + m_tremorY + m_breathOffset;
+
+    // 3D Perspective Squash & Stretch
+    float effectiveLW = m_leftWidth  - m_squashX;
+    float effectiveRW = m_rightWidth + m_squashX;
+    if (effectiveLW < 24.0f) effectiveLW = 24.0f;
+    if (effectiveRW < 24.0f) effectiveRW = 24.0f;
 
     // Effective eyelid heights
     float effectiveLH = m_leftHeight  * m_blinkProgress * m_breathScale;
@@ -671,7 +744,7 @@ void RobotEyes::draw(U8G2& u8g2) {
     float dropR = (m_rightHeight - effectiveRH) * 0.82f;
 
     int16_t xL = BASE_X + (int16_t)totalOffsetX;
-    int16_t xR = BASE_X + (int16_t)m_leftWidth + EYE_SPACING + (int16_t)totalOffsetX;
+    int16_t xR = BASE_X + (int16_t)effectiveLW + EYE_SPACING + (int16_t)totalOffsetX;
 
     float moodLiftL = (m_mood == EyeMood::SKEPTICAL) ? -3.0f : 0.0f;
     float moodLiftR = (m_mood == EyeMood::SKEPTICAL) ?  2.0f : 0.0f;
@@ -692,33 +765,32 @@ void RobotEyes::draw(U8G2& u8g2) {
     // 1. Render Eye Bodies
     if (m_mood == EyeMood::LOVE) {
         float pulse = 1.0f + (sinf(m_heartPulsePhase) * 0.10f);
-        drawHeartEye(u8g2, xL + (int16_t)(m_leftWidth / 2), yL + 16, pulse);
-        drawHeartEye(u8g2, xR + (int16_t)(m_rightWidth / 2), yR + 16, pulse);
+        drawHeartEye(u8g2, xL + (int16_t)(effectiveLW / 2), yL + 16, pulse);
+        drawHeartEye(u8g2, xR + (int16_t)(effectiveRW / 2), yR + 16, pulse);
     } else if (m_mood == EyeMood::WINK) {
-        // Left eye active, right eye winks
-        drawSingleEye(u8g2, xL, yL, m_leftWidth, effectiveLH, m_pupilWidth, m_pupilHeight, m_pupilOffsetX, m_pupilOffsetY, true);
-        drawWinkEye(u8g2, xR + (int16_t)(m_rightWidth / 2), yR + 18, m_rightWidth);
+        drawSingleEye(u8g2, xL, yL, effectiveLW, effectiveLH, m_pupilWidth, m_pupilHeight, m_pupilOffsetX, m_pupilOffsetY, true);
+        drawWinkEye(u8g2, xR + (int16_t)(effectiveRW / 2), yR + 18, effectiveRW);
     } else {
-        drawSingleEye(u8g2, xL, yL, m_leftWidth, effectiveLH, m_pupilWidth, m_pupilHeight, m_pupilOffsetX, m_pupilOffsetY, true);
-        drawSingleEye(u8g2, xR, yR, m_rightWidth, effectiveRH, m_pupilWidth, m_pupilHeight, m_pupilOffsetX, m_pupilOffsetY, false);
+        drawSingleEye(u8g2, xL, yL, effectiveLW, effectiveLH, m_pupilWidth, m_pupilHeight, m_pupilOffsetX, m_pupilOffsetY, true);
+        drawSingleEye(u8g2, xR, yR, effectiveRW, effectiveRH, m_pupilWidth, m_pupilHeight, m_pupilOffsetX, m_pupilOffsetY, false);
     }
 
     // 2. Render Articulated 3-Point Curved Eyebrows
     float browMotionY = m_browInertiaY + m_breathOffset + m_browBounce;
 
     // Left Eyebrow
-    int16_t lInX  = xL + (int16_t)m_leftWidth + 2;
-    int16_t lMidX = xL + (int16_t)(m_leftWidth * 0.45f);
+    int16_t lInX  = xL + (int16_t)effectiveLW + 2;
+    int16_t lMidX = xL + (int16_t)(effectiveLW * 0.45f);
     int16_t lOutX = xL - 3;
-    int16_t lInY  = constrain((int16_t)(m_leftBrowInnerY + browMotionY), 0, 22);
-    int16_t lMidY = constrain((int16_t)(m_leftBrowMidY   + browMotionY), 0, 22);
-    int16_t lOutY = constrain((int16_t)(m_leftBrowOuterY + browMotionY), 0, 22);
+    int16_t lInY  = constrain((int16_t)(m_leftBrowInnerY + browMotionY + m_browCuriosityTwitch), 0, 22);
+    int16_t lMidY = constrain((int16_t)(m_leftBrowMidY   + browMotionY + m_browCuriosityTwitch), 0, 22);
+    int16_t lOutY = constrain((int16_t)(m_leftBrowOuterY + browMotionY + m_browCuriosityTwitch), 0, 22);
     drawCurvedEyebrow(u8g2, lInX, lInY, lMidX, lMidY, lOutX, lOutY, true);
 
     // Right Eyebrow
     int16_t rInX  = xR - 2;
-    int16_t rMidX = xR + (int16_t)(m_rightWidth * 0.55f);
-    int16_t rOutX = xR + (int16_t)m_rightWidth + 3;
+    int16_t rMidX = xR + (int16_t)(effectiveRW * 0.55f);
+    int16_t rOutX = xR + (int16_t)effectiveRW + 3;
     int16_t rInY  = constrain((int16_t)(m_rightBrowInnerY + browMotionY), 0, 22);
     int16_t rMidY = constrain((int16_t)(m_rightBrowMidY   + browMotionY), 0, 22);
     int16_t rOutY = constrain((int16_t)(m_rightBrowOuterY + browMotionY), 0, 22);
@@ -728,11 +800,11 @@ void RobotEyes::draw(U8G2& u8g2) {
     if (m_blinkProgress > 0.4f && m_mood == EyeMood::HAPPY) {
         u8g2.setDrawColor(0);
         int16_t cutH = (int16_t)(effectiveLH * 0.35f);
-        u8g2.drawBox(xL - 2, yL + (int16_t)effectiveLH - cutH, (int16_t)m_leftWidth + 4, cutH + 2);
-        u8g2.drawBox(xR - 2, yR + (int16_t)effectiveRH - cutH, (int16_t)m_rightWidth + 4, cutH + 2);
+        u8g2.drawBox(xL - 2, yL + (int16_t)effectiveLH - cutH, (int16_t)effectiveLW + 4, cutH + 2);
+        u8g2.drawBox(xR - 2, yR + (int16_t)effectiveRH - cutH, (int16_t)effectiveRW + 4, cutH + 2);
 
         u8g2.setDrawColor(1);
-        u8g2.drawRBox(xL, yL, (int16_t)m_leftWidth, (int16_t)(effectiveLH - cutH + 3), 8);
-        u8g2.drawRBox(xR, yR, (int16_t)m_rightWidth, (int16_t)(effectiveRH - cutH + 3), 8);
+        u8g2.drawRBox(xL, yL, (int16_t)effectiveLW, (int16_t)(effectiveLH - cutH + 3), 8);
+        u8g2.drawRBox(xR, yR, (int16_t)effectiveRW, (int16_t)(effectiveRH - cutH + 3), 8);
     }
 }

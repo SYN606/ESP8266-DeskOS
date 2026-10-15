@@ -118,8 +118,13 @@ private:
     unsigned long m_nextGazeIntervalMs;
     unsigned long m_lastFrameMs;
 
-    // Special animation phases
-    float m_scanPhase;
+    // Special animation phases & secondary dynamics
+    float m_squashX;
+    float m_targetSquashX;
+    float m_pupilDilation;
+    float m_targetPupilDilation;
+    float m_browCuriosityTwitch;
+    unsigned long m_nextTwitchMs;
     float m_heartPulsePhase;
 
     void updateBlink(unsigned long now);
