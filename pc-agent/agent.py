@@ -248,18 +248,23 @@ def collect_snapshot() -> dict:
     }
 
 
-def run_serial_stream(port: str, interval: float = 1.0, mock_media: dict | None = None):
+def run_serial_stream(port: str, interval: float = 1.0, mock_media: dict | None = None, verbose: bool = False):
     """Streams live telemetry and media packets to the DeskOS OLED."""
     if not HAS_SERIAL or serial is None:
-        print("[ERROR] pyserial is not installed in the environment.")
+        print("[ERROR] pyserial is not installed in the environment.", flush=True)
         sys.exit(1)
 
-    print(f"[BRIDGE] Connecting to {port} at 115200 baud...")
     try:
         ser = serial.Serial(port, 115200, timeout=1)
         time.sleep(1.0)
-        print(f"[BRIDGE] Connected successfully to {port}!")
-        print(f"[BRIDGE] Streaming PC Stats & Media Telemetry (Ctrl+C to stop)...\n")
+
+        # Single clean banner
+        print("======================================================", flush=True)
+        print("  ESP32 DeskOS -- PC Companion Active                 ", flush=True)
+        print(f"  Connected : {port} (115200 baud)                    ", flush=True)
+        print("  Status    : Streaming metrics & music to OLED       ", flush=True)
+        print("  Exit      : Press Ctrl+C to disconnect              ", flush=True)
+        print("======================================================\n", flush=True)
 
         # Prime counters
         collect_snapshot()
@@ -312,26 +317,36 @@ def run_serial_stream(port: str, interval: float = 1.0, mock_media: dict | None 
             ser.write((json.dumps(stats_payload) + "\n").encode("utf-8"))
             ser.flush()
 
-            music_status = f"Now Playing: \"{media['title']}\" - {media['artist']}" if media["playing"] else (
-                f"Music Paused: \"{media['title']}\"" if media["title"] else "Music: None"
-            )
-            print(
-                f"[STREAM] {stats_payload['time']} | CPU: {stats_payload['cpu']:>4.1f}% | RAM: {stats_payload['ram']:>4.1f}% | Net: {stats_payload['net_in']:>5.1f} KB/s | {music_status}",
-                flush=True
-            )
+            if verbose:
+                music_status = f"Now Playing: \"{media['title']}\" - {media['artist']}" if media["playing"] else (
+                    f"Music Paused: \"{media['title']}\"" if media["title"] else "Music: None"
+                )
+                print(
+                    f"[STREAM] {stats_payload['time']} | CPU: {stats_payload['cpu']:>4.1f}% | RAM: {stats_payload['ram']:>4.1f}% | Net: {stats_payload['net_in']:>5.1f} KB/s | {music_status}",
+                    flush=True
+                )
 
             elapsed = time.time() - t_start
             time.sleep(max(0.1, interval - elapsed))
 
     except KeyboardInterrupt:
-        print("\n[BRIDGE] Stopped by user.")
+        print("\n[DESKOS] Companion disconnected.", flush=True)
         sys.exit(0)
-    except Exception as err:
-        print(f"\n[BRIDGE ERROR] {err}")
+    except BaseException as err:
+        print(f"\n[DESKOS ERROR] {err}", flush=True)
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 
 def main():
+    # Protect against None streams in pythonw/daemon environments
+    import os
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w")
+
     parser = argparse.ArgumentParser(description="ESP32/ESP8266 DeskOS PC Companion Agent")
     parser.add_argument("--serial", type=str, default="auto", help="COM port to stream to (default: auto-detect)")
     parser.add_argument("--interval", type=float, default=1.0, help="Update interval in seconds (default: 1.0)")
@@ -339,9 +354,24 @@ def main():
     parser.add_argument("--test-media", action="store_true", help="Stream mock playing music track for visual testing")
     parser.add_argument("--track", type=str, default=None, help="Custom track title for testing")
     parser.add_argument("--artist", type=str, default="Rick Astley", help="Custom artist for testing")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Print real-time per-second telemetry logs to terminal")
+    parser.add_argument("--log-file", type=str, default=None, help="Redirect agent output to a log file")
     parser.add_argument("--snapshot", action="store_true", help="Output a single JSON snapshot to stdout and exit")
     parser.add_argument("--pretty", action="store_true", help="Pretty print JSON snapshot")
     args = parser.parse_args()
+
+    # Log file redirection for background daemon mode
+    if args.log_file:
+        log_dir = os.path.dirname(os.path.abspath(args.log_file))
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
+        log_fh = open(args.log_file, "a", encoding="utf-8")
+        try:
+            log_fh.reconfigure(line_buffering=True)
+        except Exception:
+            pass
+        sys.stdout = log_fh
+        sys.stderr = log_fh
 
     # Snapshot Mode
     if args.snapshot:
@@ -363,7 +393,6 @@ def main():
             print("[ERROR] No serial COM ports detected! Please check your USB cable connection.")
             print("[HINT] Run with --snapshot to test metrics without a microcontroller.")
             sys.exit(1)
-        print(f"[PORT] Auto-detected microcontroller on {port}")
 
     # One-shot QR command
     if args.qr:
@@ -385,8 +414,8 @@ def main():
             "playing": True
         }
 
-    # Default Mode: Stream live PC Stats and Media to OLED
-    run_serial_stream(port=port, interval=args.interval, mock_media=mock_media)
+    # Default Mode: Stream live PC Stats and Media to OLED (Clean banner, no continuous spam)
+    run_serial_stream(port=port, interval=args.interval, mock_media=mock_media, verbose=args.verbose)
 
 
 if __name__ == "__main__":

@@ -166,14 +166,46 @@ Connect your board via USB and run:
 
 ### 5. Launch the PC Companion Bridge
 
-Run the agent script:
+The PC companion streams live CPU/RAM/Network stats, local time, and active media playback (Spotify, YouTube, VLC) directly to your DeskOS OLED.
 
+#### Option A: Quick Double-Click (Batch Launchers)
+In the root directory, simply double-click:
+- **`Start-Background.bat`** — Starts the agent silently in the background (no open terminal window).
+- **`Status.bat`** — Displays process status, PID, memory consumption, and recent logs.
+- **`View-Logs.bat`** — Opens a live streaming view of agent activity.
+- **`Stop-Background.bat`** — Cleanly shuts down the background agent.
+
+#### Option B: PowerShell Scripts
+```powershell
+# Start silently in the background
+.\scripts\start-background.ps1
+
+# Check status & health
+.\scripts\status.ps1
+
+# Follow live output logs
+.\scripts\logs.ps1
+
+# Stop the background process
+.\scripts\stop-background.ps1
+```
+
+#### Option C: Run in Foreground (Clean Single Banner)
 ```powershell
 .\scripts\agent.ps1
+# or: uv run python pc-agent/agent.py
 ```
-*(or `uv run python pc-agent/agent.py`)*
+> [!TIP]
+> The foreground agent displays a clean 5-line startup banner without spamming console output every second. To view real-time per-second telemetry logs, pass `-ShowStream` (or `--verbose` / `-v`).
 
-The agent auto-detects your COM port and starts streaming live CPU/RAM stats and whatever music you are currently playing on Windows!
+#### Option D: Automatic Start on Windows Login
+```powershell
+# Install auto-start at Windows logon
+.\scripts\install-startup.ps1
+
+# Remove auto-start
+.\scripts\uninstall-startup.ps1
+```
 
 ---
 
