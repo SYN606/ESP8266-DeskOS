@@ -117,14 +117,7 @@ void RobotEyes::triggerBlink() {
     m_isBlinking = true;
     m_blinkStage = 1;
     m_blinkStartMs = millis();
-    m_browBounce = 2.4f;
-}
-
-void RobotEyes::look(int8_t dirX, int8_t dirY) {
-    m_targetPupilOffsetX = constrain(dirX * 9, -10, 10);
-    m_targetPupilOffsetY = constrain(dirY * 6, -7, 7);
-    m_targetOffsetX = constrain(dirX * 4, -5, 5);
-    m_targetOffsetY = constrain(dirY * 3, -4, 4);
+    m_browBounce = 1.8f;
 }
 
 void RobotEyes::updateBlink(unsigned long now) {
@@ -137,15 +130,15 @@ void RobotEyes::updateBlink(unsigned long now) {
             m_doubleBlinkPending = false;
         } else if (now - m_lastBlinkMs >= m_nextBlinkIntervalMs) {
             shouldBlink = true;
-            if (random(0, 100) < 25 && m_mood != EyeMood::SLEEPY) {
+            if (random(0, 100) < 22 && m_mood != EyeMood::SLEEPY) {
                 m_doubleBlinkPending = true;
-                m_doubleBlinkTriggerMs = now + 340;
+                m_doubleBlinkTriggerMs = now + random(300, 420);
             }
             m_lastBlinkMs = now;
             if (m_mood == EyeMood::SLEEPY) {
                 m_nextBlinkIntervalMs = random(4000, 7000);
             } else {
-                m_nextBlinkIntervalMs = random(2500, 5000);
+                m_nextBlinkIntervalMs = random(2600, 5200);
             }
         }
 
@@ -153,27 +146,28 @@ void RobotEyes::updateBlink(unsigned long now) {
             m_isBlinking = true;
             m_blinkStage = 1;
             m_blinkStartMs = now;
-            m_browBounce = 2.0f;
+            m_browBounce = 1.6f;
         }
         return;
     }
 
-    // 2. High-performance non-linear asymmetric blink curve
+    // 2. High-fidelity non-linear asymmetric biological blink curve
     unsigned long elapsed = now - m_blinkStartMs;
-    constexpr unsigned long CLOSE_DURATION_MS = 60;
-    constexpr unsigned long CLOSED_PAUSE_MS   = 22;
-    constexpr unsigned long OPEN_DURATION_MS  = 135;
+    constexpr unsigned long CLOSE_DURATION_MS = 85;  // Fast, sharp downstroke
+    constexpr unsigned long CLOSED_PAUSE_MS   = 28;  // Clear momentary closed contact
+    constexpr unsigned long OPEN_DURATION_MS  = 175; // Smooth elastic ease-out upstroke
 
     if (m_blinkStage == 1) { // Closing
         if (elapsed < CLOSE_DURATION_MS) {
             float t = (float)elapsed / CLOSE_DURATION_MS;
-            m_blinkProgress = 1.0f - (t * t);
+            m_blinkProgress = 1.0f - (t * t * (3.0f - 2.0f * t));
         } else {
-            m_blinkProgress = 0.05f;
+            m_blinkProgress = 0.0f;
             m_blinkStage = 2;
             m_blinkStartMs = now;
         }
-    } else if (m_blinkStage == 2) { // Closed slit pause
+    } else if (m_blinkStage == 2) { // Closed contact rest
+        m_blinkProgress = 0.0f;
         if (elapsed >= CLOSED_PAUSE_MS) {
             m_blinkStage = 3;
             m_blinkStartMs = now;
@@ -182,8 +176,8 @@ void RobotEyes::updateBlink(unsigned long now) {
     } else if (m_blinkStage == 3) { // Opening with elastic ease-out
         if (elapsed < OPEN_DURATION_MS) {
             float t = (float)elapsed / OPEN_DURATION_MS;
-            float easeOut = 1.0f - powf(1.0f - t, 3.0f);
-            m_blinkProgress = 0.05f + (easeOut * 0.95f);
+            float easeOut = 1.0f - powf(1.0f - t, 2.8f);
+            m_blinkProgress = easeOut;
         } else {
             m_blinkProgress = 1.0f;
             m_isBlinking = false;
@@ -522,25 +516,36 @@ void RobotEyes::drawWinkEye(U8G2& u8g2, int16_t cx, int16_t cy, float w) {
     u8g2.drawLine(cx + halfW, cy - 6, cx + halfW + 2, cy - 8);
 }
 
-void RobotEyes::drawSingleEye(U8G2& u8g2, int16_t x, int16_t y, float w, float h, float pW, float pH, float pOffX, float pOffY, bool isLeft) {
+void RobotEyes::drawSingleEye(U8G2& u8g2, int16_t x, int16_t y, float w, float h, float pW, float pH, float pOffX, float pOffY, float blinkProgress, bool isLeft) {
+    // 1. Biological Closed Eyelid Seam (when eye is fully closed)
+    if (blinkProgress <= 0.08f) {
+        u8g2.setDrawColor(1);
+        int16_t seamY = y + (int16_t)(h * 0.74f);
+        // Expressive curved closed-eye arc
+        u8g2.drawLine(x + 2, seamY, x + (int16_t)w - 3, seamY);
+        u8g2.drawLine(x + 5, seamY + 1, x + (int16_t)w - 6, seamY + 1);
+        if (isLeft) {
+            u8g2.drawLine(x + 2, seamY, x - 1, seamY - 2);
+        } else {
+            u8g2.drawLine(x + (int16_t)w - 3, seamY, x + (int16_t)w, seamY - 2);
+        }
+        return;
+    }
+
     int16_t rad = min((int16_t)CORNER_RADIUS, (int16_t)(h / 2));
     if (rad < 2) rad = 2;
 
-    // 1. Draw outer white eye capsule (sclera)
+    // 2. Outer White Eye Capsule (sclera) rendered at stable anchored position
     u8g2.setDrawColor(1);
     u8g2.drawRBox(x, y, (int16_t)w, (int16_t)h, rad);
 
-    // If eye is closed / slit, don't draw inner pupil
-    if (h < 10.0f) return;
-
-    // 2. Active pupil dynamics with 3D cornea depth
+    // 3. Active pupil dynamics inside
     int16_t centerX = x + (int16_t)(w / 2);
     int16_t centerY = y + (int16_t)(h / 2);
 
     float effectivePW = pW * m_pupilDilation;
     float effectivePH = pH * m_pupilDilation;
 
-    // Clamp pupil offset so it stays naturally inside the white eye boundaries
     float maxPoffX = (w / 2.0f) - (effectivePW / 2.0f) - 2.5f;
     float maxPoffY = (h / 2.0f) - (effectivePH / 2.0f) - 2.0f;
     if (maxPoffX < 0) maxPoffX = 0;
@@ -552,22 +557,17 @@ void RobotEyes::drawSingleEye(U8G2& u8g2, int16_t x, int16_t y, float w, float h
     int16_t pRad = min((int16_t)5, (int16_t)(effectivePH / 3));
     if (pRad < 2) pRad = 2;
 
-    // Draw deep dark pupil capsule
     u8g2.setDrawColor(0);
     u8g2.drawRBox(pX, pY, (int16_t)effectivePW, (int16_t)effectivePH, pRad);
 
-    // 3. 3D Cornea Specular Highlight (Catchlight)
-    // Fixed ambient light reflection creates true glossy wet cornea depth!
+    // 4. 3D Cornea Specular Catchlight
     if (effectivePH >= 12.0f && effectivePW >= 10.0f) {
         u8g2.setDrawColor(1);
-
-        // Primary catchlight glint (2x2 disc)
         int16_t glintX = pX + (int16_t)(effectivePW * 0.65f);
         int16_t glintY = pY + 3;
         if (glintX > pX + (int16_t)effectivePW - 3) glintX = pX + (int16_t)effectivePW - 3;
         u8g2.drawDisc(glintX, glintY, 1);
 
-        // Secondary subtle bounce reflection (1px) in opposite lower quadrant
         int16_t secGlintX = pX + 3;
         int16_t secGlintY = pY + (int16_t)effectivePH - 4;
         if (secGlintY > pY + 4 && secGlintX < glintX - 2) {
@@ -575,7 +575,22 @@ void RobotEyes::drawSingleEye(U8G2& u8g2, int16_t x, int16_t y, float w, float h
         }
     }
 
-    u8g2.setDrawColor(1);
+    // 5. Biological Eyelid Sweeping Masks (Upper drops 80%, lower rises 20%)
+    if (blinkProgress < 0.98f) {
+        u8g2.setDrawColor(0); // Cut with face background color
+
+        int16_t dropH = (int16_t)(h * (1.0f - blinkProgress) * 0.80f);
+        if (dropH > 0) {
+            u8g2.drawBox(x - 2, y - 4, (int16_t)w + 4, dropH + 4);
+        }
+
+        int16_t riseH = (int16_t)(h * (1.0f - blinkProgress) * 0.20f);
+        if (riseH > 0) {
+            u8g2.drawBox(x - 2, y + (int16_t)h - riseH, (int16_t)w + 4, riseH + 4);
+        }
+
+        u8g2.setDrawColor(1);
+    }
 }
 
 void RobotEyes::drawCatEyes(U8G2& u8g2, int16_t xL, int16_t yL, int16_t xR, int16_t yR, float pOffX, float pOffY, float blinkProgress) {
@@ -586,59 +601,70 @@ void RobotEyes::drawCatEyes(U8G2& u8g2, int16_t xL, int16_t yL, int16_t xR, int1
     int16_t earTwitchR = (pOffX > 3.0f) ? -1 : 0;
 
     // 1. Pointed Cat Ears (3D triangle with inner ear cavity)
-    // Left Ear
     u8g2.drawTriangle(xL + 1, yL + 1, xL + 18, yL + 1, xL + 5, yL - 14 + earTwitchL);
     u8g2.setDrawColor(0);
     u8g2.drawTriangle(xL + 4, yL + 1, xL + 15, yL + 1, xL + 7, yL - 10 + earTwitchL);
     u8g2.setDrawColor(1);
 
-    // Right Ear
     u8g2.drawTriangle(xR + 15, yR + 1, xR + 32, yR + 1, xR + 28, yR - 14 + earTwitchR);
     u8g2.setDrawColor(0);
     u8g2.drawTriangle(xR + 18, yR + 1, xR + 29, yR + 1, xR + 26, yR - 10 + earTwitchR);
     u8g2.setDrawColor(1);
 
-    // 2. Feline Eye Sclera Capsules
-    int16_t h = (int16_t)(34.0f * blinkProgress);
-    if (h < 2) h = 2;
-    int16_t rad = min((int16_t)9, (int16_t)(h / 2));
-    if (rad < 2) rad = 2;
+    // 2. Feline Eyes or Sleeping Cat Closed Seams
+    if (blinkProgress <= 0.08f) {
+        int16_t seamYL = yL + 24;
+        int16_t seamYR = yR + 24;
+        // Cute sleeping cat crescent slits
+        u8g2.drawCircle(xL + 17, seamYL - 4, 10, U8G2_DRAW_LOWER_LEFT | U8G2_DRAW_LOWER_RIGHT);
+        u8g2.drawCircle(xL + 17, seamYL - 5, 10, U8G2_DRAW_LOWER_LEFT | U8G2_DRAW_LOWER_RIGHT);
+        u8g2.drawCircle(xR + 17, seamYR - 4, 10, U8G2_DRAW_LOWER_LEFT | U8G2_DRAW_LOWER_RIGHT);
+        u8g2.drawCircle(xR + 17, seamYR - 5, 10, U8G2_DRAW_LOWER_LEFT | U8G2_DRAW_LOWER_RIGHT);
+    } else {
+        u8g2.drawRBox(xL, yL, 34, 34, 9);
+        u8g2.drawRBox(xR, yR, 34, 34, 9);
 
-    u8g2.drawRBox(xL, yL, 34, h, rad);
-    u8g2.drawRBox(xR, yR, 34, h, rad);
-
-    // 3. Feline Slit Pupils with Dynamic Dilation
-    if (h >= 8) {
+        // Feline Slit Pupils with Dynamic Dilation
         u8g2.setDrawColor(0);
         int16_t cxL = xL + 17 + (int16_t)constrain(pOffX, -8.0f, 8.0f);
-        int16_t cyL = yL + (h / 2) + (int16_t)constrain(pOffY, -5.0f, 5.0f);
+        int16_t cyL = yL + 17 + (int16_t)constrain(pOffY, -5.0f, 5.0f);
         int16_t cxR = xR + 17 + (int16_t)constrain(pOffX, -8.0f, 8.0f);
-        int16_t cyR = yR + (h / 2) + (int16_t)constrain(pOffY, -5.0f, 5.0f);
+        int16_t cyR = yR + 17 + (int16_t)constrain(pOffY, -5.0f, 5.0f);
 
-        int16_t slitRy = (int16_t)((h - 6) / 2);
-        if (slitRy < 2) slitRy = 2;
         int16_t slitRx = (m_pupilDilation > 1.08f) ? 3 : 2;
-
-        u8g2.drawFilledEllipse(cxL, cyL, slitRx, slitRy);
-        u8g2.drawFilledEllipse(cxR, cyR, slitRx, slitRy);
+        u8g2.drawFilledEllipse(cxL, cyL, slitRx, 14);
+        u8g2.drawFilledEllipse(cxR, cyR, slitRx, 14);
 
         // Specular glint
         u8g2.setDrawColor(1);
         u8g2.drawPixel(cxL + slitRx + 1, cyL - 3);
         u8g2.drawPixel(cxR + slitRx + 1, cyR - 3);
+
+        // Eyelid sweep mask
+        if (blinkProgress < 0.98f) {
+            u8g2.setDrawColor(0);
+            int16_t dropH = (int16_t)(34.0f * (1.0f - blinkProgress) * 0.82f);
+            if (dropH > 0) {
+                u8g2.drawBox(xL - 2, yL - 2, 38, dropH + 2);
+                u8g2.drawBox(xR - 2, yR - 2, 38, dropH + 2);
+            }
+            int16_t riseH = (int16_t)(34.0f * (1.0f - blinkProgress) * 0.18f);
+            if (riseH > 0) {
+                u8g2.drawBox(xL - 2, yL + 34 - riseH, 38, riseH + 2);
+                u8g2.drawBox(xR - 2, yR + 34 - riseH, 38, riseH + 2);
+            }
+            u8g2.setDrawColor(1);
+        }
     }
 
-    // 4. Cat Muzzle, Inverted Nose, and Whiskers with Breathing Motion
+    // 3. Cat Muzzle, Inverted Nose, and Whiskers with Breathing Motion
     u8g2.setDrawColor(1);
     int16_t noseY = 46 + (int16_t)(m_breathOffset * 0.4f);
-    // Inverted nose triangle
     u8g2.drawTriangle(61, noseY, 67, noseY, 64, noseY + 3);
-    // Philtrum & cheerful mouth arcs
     u8g2.drawLine(64, noseY + 3, 64, noseY + 5);
     u8g2.drawLine(64, noseY + 5, 59, noseY + 7);
     u8g2.drawLine(64, noseY + 5, 69, noseY + 7);
 
-    // Whiskers with subtle sway
     int16_t wSway = (int16_t)(sinf(millis() * 0.003f) * 1.0f);
     u8g2.drawLine(xL - 2, 44 + wSway, xL - 15, 41);
     u8g2.drawLine(xL - 2, 48,         xL - 16, 49 - wSway);
@@ -673,7 +699,6 @@ void RobotEyes::drawOwlEyes(U8G2& u8g2, float pOffX, float pOffY, float blinkPro
     u8g2.drawCircle(cxR, cyR, 22);
     u8g2.drawCircle(cxR, cyR, 20);
 
-    // Radial feather tick marks around the rim
     u8g2.drawPixel(cxL - 22, cyL);
     u8g2.drawPixel(cxL + 22, cyL);
     u8g2.drawPixel(cxL, cyL - 22);
@@ -683,40 +708,49 @@ void RobotEyes::drawOwlEyes(U8G2& u8g2, float pOffX, float pOffY, float blinkPro
     u8g2.drawPixel(cxR, cyR - 22);
     u8g2.drawPixel(cxR, cyR + 22);
 
-    // 4. White Sclera Disc (responds to blinking)
-    int16_t radY = (int16_t)(17.0f * blinkProgress);
-    if (radY < 2) radY = 2;
-    u8g2.drawFilledEllipse(cxL, cyL, 17, radY);
-    u8g2.drawFilledEllipse(cxR, cyR, 17, radY);
+    // 4. Owl Eyes or Sleeping Closed Seams
+    if (blinkProgress <= 0.08f) {
+        u8g2.drawLine(cxL - 14, cyL + 4, cxL + 14, cyL + 4);
+        u8g2.drawLine(cxL - 10, cyL + 5, cxL + 10, cyL + 5);
+        u8g2.drawLine(cxR - 14, cyR + 4, cxR + 14, cyR + 4);
+        u8g2.drawLine(cxR - 10, cyR + 5, cxR + 10, cyR + 5);
+    } else {
+        u8g2.drawFilledEllipse(cxL, cyL, 17, 17);
+        u8g2.drawFilledEllipse(cxR, cyR, 17, 17);
 
-    // 5. Giant Nocturnal Black Owl Pupils
-    if (radY >= 6) {
         u8g2.setDrawColor(0);
         int16_t pxL = cxL + (int16_t)constrain(pOffX * 0.65f, -6.0f, 6.0f);
         int16_t pyL = cyL + (int16_t)constrain(pOffY * 0.65f, -5.0f, 5.0f);
         int16_t pxR = cxR + (int16_t)constrain(pOffX * 0.65f, -6.0f, 6.0f);
         int16_t pyR = cyR + (int16_t)constrain(pOffY * 0.65f, -5.0f, 5.0f);
 
-        int16_t pRadY = min((int16_t)10, (int16_t)(radY - 2));
-        if (pRadY < 2) pRadY = 2;
-        u8g2.drawFilledEllipse(pxL, pyL, 10, pRadY);
-        u8g2.drawFilledEllipse(pxR, pyR, 10, pRadY);
+        u8g2.drawFilledEllipse(pxL, pyL, 10, 10);
+        u8g2.drawFilledEllipse(pxR, pyR, 10, 10);
 
-        // Specular eye reflections (dual depth)
         u8g2.setDrawColor(1);
         u8g2.drawDisc(pxL + 3, pyL - 3, 2);
         u8g2.drawDisc(pxR + 3, pyR - 3, 2);
         u8g2.drawPixel(pxL + 5, pyL + 1);
         u8g2.drawPixel(pxR + 5, pyR + 1);
+
+        if (blinkProgress < 0.98f) {
+            u8g2.setDrawColor(0);
+            int16_t dropH = (int16_t)(34.0f * (1.0f - blinkProgress));
+            if (dropH > 0) {
+                u8g2.drawBox(cxL - 18, cyL - 18, 36, dropH);
+                u8g2.drawBox(cxR - 18, cyR - 18, 36, dropH);
+            }
+            u8g2.setDrawColor(1);
+        }
     }
 
-    // 6. Hooked Center Owl Beak
+    // 5. Hooked Center Owl Beak
     u8g2.setDrawColor(1);
     u8g2.drawTriangle(60, cyL - 7, 68, cyL - 7, 64, cyL + 9);
     u8g2.setDrawColor(0);
     u8g2.drawLine(64, cyL - 6, 64, cyL + 8);
-    u8g2.drawPixel(62, cyL - 5); // Left nostril
-    u8g2.drawPixel(66, cyL - 5); // Right nostril
+    u8g2.drawPixel(62, cyL - 5);
+    u8g2.drawPixel(66, cyL - 5);
     u8g2.setDrawColor(1);
 }
 
@@ -733,15 +767,8 @@ void RobotEyes::draw(U8G2& u8g2) {
     if (effectiveLW < 24.0f) effectiveLW = 24.0f;
     if (effectiveRW < 24.0f) effectiveRW = 24.0f;
 
-    // Effective eyelid heights
-    float effectiveLH = m_leftHeight  * m_blinkProgress * m_breathScale;
-    float effectiveRH = m_rightHeight * m_blinkProgress * m_breathScale;
-    if (effectiveLH < 2.5f) effectiveLH = 2.5f;
-    if (effectiveRH < 2.5f) effectiveRH = 2.5f;
-
-    // Asymmetric eyelid drop (upper lid drops 82%, lower lid rises 18%)
-    float dropL = (m_leftHeight  - effectiveLH) * 0.82f;
-    float dropR = (m_rightHeight - effectiveRH) * 0.82f;
+    float effectiveLH = m_leftHeight  * m_breathScale;
+    float effectiveRH = m_rightHeight * m_breathScale;
 
     int16_t xL = BASE_X + (int16_t)totalOffsetX;
     int16_t xR = BASE_X + (int16_t)effectiveLW + EYE_SPACING + (int16_t)totalOffsetX;
@@ -749,8 +776,9 @@ void RobotEyes::draw(U8G2& u8g2) {
     float moodLiftL = (m_mood == EyeMood::SKEPTICAL) ? -3.0f : 0.0f;
     float moodLiftR = (m_mood == EyeMood::SKEPTICAL) ?  2.0f : 0.0f;
 
-    int16_t yL = BASE_Y + (int16_t)(totalOffsetY + dropL + moodLiftL);
-    int16_t yR = BASE_Y + (int16_t)(totalOffsetY + dropR + moodLiftR);
+    // Stable, anchored eye position - no collapsing down the screen!
+    int16_t yL = BASE_Y + (int16_t)(totalOffsetY + moodLiftL);
+    int16_t yR = BASE_Y + (int16_t)(totalOffsetY + moodLiftR);
 
     // Dedicated Full Facial Renderers for Cat and Owl
     if (m_mood == EyeMood::CAT) {
@@ -762,17 +790,17 @@ void RobotEyes::draw(U8G2& u8g2) {
         return;
     }
 
-    // 1. Render Eye Bodies
+    // 1. Render Eye Bodies with biological sweeping eyelid masks
     if (m_mood == EyeMood::LOVE) {
         float pulse = 1.0f + (sinf(m_heartPulsePhase) * 0.10f);
         drawHeartEye(u8g2, xL + (int16_t)(effectiveLW / 2), yL + 16, pulse);
         drawHeartEye(u8g2, xR + (int16_t)(effectiveRW / 2), yR + 16, pulse);
     } else if (m_mood == EyeMood::WINK) {
-        drawSingleEye(u8g2, xL, yL, effectiveLW, effectiveLH, m_pupilWidth, m_pupilHeight, m_pupilOffsetX, m_pupilOffsetY, true);
+        drawSingleEye(u8g2, xL, yL, effectiveLW, effectiveLH, m_pupilWidth, m_pupilHeight, m_pupilOffsetX, m_pupilOffsetY, m_blinkProgress, true);
         drawWinkEye(u8g2, xR + (int16_t)(effectiveRW / 2), yR + 18, effectiveRW);
     } else {
-        drawSingleEye(u8g2, xL, yL, effectiveLW, effectiveLH, m_pupilWidth, m_pupilHeight, m_pupilOffsetX, m_pupilOffsetY, true);
-        drawSingleEye(u8g2, xR, yR, effectiveRW, effectiveRH, m_pupilWidth, m_pupilHeight, m_pupilOffsetX, m_pupilOffsetY, false);
+        drawSingleEye(u8g2, xL, yL, effectiveLW, effectiveLH, m_pupilWidth, m_pupilHeight, m_pupilOffsetX, m_pupilOffsetY, m_blinkProgress, true);
+        drawSingleEye(u8g2, xR, yR, effectiveRW, effectiveRH, m_pupilWidth, m_pupilHeight, m_pupilOffsetX, m_pupilOffsetY, m_blinkProgress, false);
     }
 
     // 2. Render Articulated 3-Point Curved Eyebrows

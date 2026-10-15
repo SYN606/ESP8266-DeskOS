@@ -35,9 +35,6 @@ public:
     // Trigger an immediate blink
     void triggerBlink();
 
-    // Force glance direction (-1=left/up, 0=center, 1=right/down)
-    void look(int8_t dirX, int8_t dirY);
-
 private:
     EyeMood m_mood;
 
@@ -131,7 +128,7 @@ private:
     void updateGaze(unsigned long now);
     void updateMoodDynamics(unsigned long now);
 
-    void drawSingleEye(U8G2& u8g2, int16_t x, int16_t y, float w, float h, float pW, float pH, float pOffX, float pOffY, bool isLeft);
+    void drawSingleEye(U8G2& u8g2, int16_t x, int16_t y, float w, float h, float pW, float pH, float pOffX, float pOffY, float blinkProgress, bool isLeft);
     void drawCurvedEyebrow(U8G2& u8g2, int16_t xIn, int16_t yIn, int16_t xMid, int16_t yMid, int16_t xOut, int16_t yOut, bool isLeft);
     void drawHeartEye(U8G2& u8g2, int16_t cx, int16_t cy, float scale);
     void drawWinkEye(U8G2& u8g2, int16_t cx, int16_t cy, float w);
